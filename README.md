@@ -20,14 +20,18 @@ npm install --save-dev dream-come-true
 
 ```json
 {
+  "$schema": "https://opencode.ai/config.json",
+  "model": "deepseek-chat",
   "plugin": ["dream-come-true"],
   "agent": {
+    "plan": { "disable": true },
+    "build": { "disable": true },
     "captain": {
       "description": "dream-come-true 主编排器。通过 captain_run/captain_next/captain_mark/captain_schema/captain_status 工具驱动 6 阶段流水线，将模糊需求转化为生产级代码",
       "mode": "primary",
       "permission": {
         "read": "allow", "edit": "ask", "bash": "allow",
-        "task": "*", "skill": "*", "question": "allow",
+        "task": { "*": "allow" }, "skill": { "*": "allow" }, "question": "allow",
         "glob": "allow", "grep": "allow", "lsp": "allow"
       },
       "color": "#2563eb"
@@ -61,8 +65,7 @@ npm install --save-dev dream-come-true
 ```bash
 cd /path/to/your/project
 opencode
-# Tab 切换到 captain agent
-# 输入你的需求即可
+# captain 为默认 agent，直接输入需求即可
 ```
 
 ## 自定义阶段流程（可选）
