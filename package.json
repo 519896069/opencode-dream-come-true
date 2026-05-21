@@ -9,16 +9,16 @@
   },
   "files": [
     "dct-engine.ts",
-    "install.js",
+    "install.cjs",
     "assets/",
     "template/",
     "README.md"
   ],
   "scripts": {
-    "postinstall": "node install.js"
+    "postinstall": "node install.cjs"
   },
-  "dependencies": {
-    "@opencode-ai/plugin": "latest"
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=0.1.0"
   },
   "keywords": ["opencode", "opencode-plugin", "sdlc", "tdd", "code-generation"],
   "author": "oray.onion",

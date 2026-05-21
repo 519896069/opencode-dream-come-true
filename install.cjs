@@ -1,14 +1,8 @@
-import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync } from "fs"
-import { join, resolve } from "path"
-import { homedir } from "os"
-import { fileURLToPath } from "url"
-
-const __dirname = fileURLToPath(new URL(".", import.meta.url))
+const { existsSync, mkdirSync, copyFileSync, readdirSync } = require("fs")
+const { join, resolve } = require("path")
+const { homedir } = require("os")
 
 function getConfigDir() {
-  if (process.platform === "win32") {
-    return join(homedir(), "AppData", "Roaming", "opencode")
-  }
   return join(homedir(), ".config", "opencode")
 }
 
@@ -26,10 +20,9 @@ function copyDir(src, dest) {
   }
 }
 
-const isInstalled = process.env.npm_config_global !== "true"
 const action = process.argv[2]
 
-if (action === "link" || isInstalled) {
+if (action !== "skip") {
   const configDir = getConfigDir()
   const pkgRoot = resolve(__dirname)
 
