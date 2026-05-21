@@ -1,4 +1,4 @@
-const { existsSync, mkdirSync, copyFileSync, readdirSync } = require("fs")
+const { existsSync, mkdirSync, copyFileSync, readdirSync, readFileSync, writeFileSync } = require("fs")
 const { join, resolve } = require("path")
 const { homedir } = require("os")
 
@@ -46,13 +46,27 @@ if (action !== "skip") {
     console.log("  pipeline.config.json installed to", configDir)
   }
 
-  console.log("")
-  console.log("To complete setup, add to your ~/.config/opencode/opencode.json:")
-  console.log('  "plugin": ["dream-come-true"]')
-  console.log("")
-  console.log("And copy agent config from:")
-  console.log("  https://github.com/519896069/opencode-dream-come-true#opencodejson")
-  console.log("")
+  // auto-register plugin in opencode.json
+  const configPath = join(configDir, "opencode.json")
+  if (existsSync(configPath)) {
+    try {
+      const raw = readFileSync(configPath, "utf-8")
+      const config = JSON.parse(raw)
+      if (!config.plugin) config.plugin = []
+      if (!config.plugin.includes("dream-come-true")) {
+        config.plugin.push("dream-come-true")
+        writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n")
+        console.log("  plugin registered in opencode.json")
+      } else {
+        console.log("  plugin already registered in opencode.json")
+      }
+    } catch (e) {
+      console.log("  warning: failed to update opencode.json:", e.message)
+      console.log('  please manually add "plugin": ["dream-come-true"] to opencode.json')
+    }
+  } else {
+    console.log("  warning: opencode.json not found, please create it manually")
+  }
 } else {
   console.log("dream-come-true v2.0.0 installed.")
   console.log("Run: npx dream-come-true setup")
