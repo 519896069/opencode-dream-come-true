@@ -52,6 +52,16 @@ if (action !== "skip") {
     console.log("  pipeline.schema.json installed to", configDir)
   }
 
+  // copy plugin entry point to plugins/
+  const pluginSrc = join(pkgRoot, "dct-engine.ts")
+  const pluginDest = join(configDir, "plugins", "dream-come-true.ts")
+  if (existsSync(pluginSrc)) {
+    const pluginsDir = join(configDir, "plugins")
+    if (!existsSync(pluginsDir)) mkdirSync(pluginsDir, { recursive: true })
+    copyFileSync(pluginSrc, pluginDest)
+    console.log("  plugin entry installed to", pluginDest)
+  }
+
   // auto-register plugin in opencode.json
   const configPath = join(configDir, "opencode.json")
   if (existsSync(configPath)) {
