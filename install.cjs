@@ -46,19 +46,42 @@ if (action !== "skip") {
     console.log("  pipeline.config.json installed to", configDir)
   }
 
+  const pipelineSchema = join(pkgRoot, "template", "pipeline.schema.json")
+  if (existsSync(pipelineSchema)) {
+    copyFileSync(pipelineSchema, join(configDir, "pipeline.schema.json"))
+    console.log("  pipeline.schema.json installed to", configDir)
+  }
+
   // auto-register plugin in opencode.json
   const configPath = join(configDir, "opencode.json")
   if (existsSync(configPath)) {
     try {
       const raw = readFileSync(configPath, "utf-8")
       const config = JSON.parse(raw)
+      let changed = false
+
+      // register plugin
       if (!config.plugin) config.plugin = []
       if (!config.plugin.includes("dream-come-true")) {
         config.plugin.push("dream-come-true")
-        writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n")
+        changed = true
         console.log("  plugin registered in opencode.json")
       } else {
         console.log("  plugin already registered in opencode.json")
+      }
+
+      // register captain as main agent
+      if (!config.agent) config.agent = {}
+      if (!config.agent.captain) {
+        config.agent.captain = {}
+        changed = true
+        console.log("  captain agent registered in opencode.json")
+      } else {
+        console.log("  captain agent already registered in opencode.json")
+      }
+
+      if (changed) {
+        writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n")
       }
     } catch (e) {
       console.log("  warning: failed to update opencode.json:", e.message)

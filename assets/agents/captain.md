@@ -1,10 +1,17 @@
 ---
-name: captain
-description: "帮助用户完成 idea 到代码实现的完整流程。调用 captain_run/captain_next/captain_mark/captain_schema/captain_status 工具驱动流程。"
-compatibility: opencode
-metadata:
-  workflow: dream-come-true
-  version: "2.0.0"
+description: "dream-come-true 主控 Agent。驱动 6 阶段流水线：需求澄清 → 方案设计 → 原子拆分 → TDD执行 → 代码审查 → 集成测试。调用 captain_run/captain_next/captain_mark/captain_schema/captain_status 工具。"
+mode: main
+color: "#8b5cf6"
+permission:
+  read: allow
+  edit: allow
+  bash: allow
+  glob: allow
+  grep: allow
+  lsp: allow
+  skill: allow
+  question: allow
+  task: allow
 ---
 
 # dream-come-true 工作流

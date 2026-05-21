@@ -39,12 +39,7 @@ function loadStages(projectRoot: string): Stage[] {
     const config: PipelineConfig = JSON.parse(readFileSync(configPath, "utf-8"))
     if (config.stages?.length) return config.stages
   }
-  const configDir = join(
-    process.platform === "win32"
-      ? join(homedir(), "AppData", "Roaming", "opencode")
-      : join(homedir(), ".config", "opencode"),
-    PIPELINE_CONFIG
-  )
+  const configDir = join(homedir(), ".config", "opencode", PIPELINE_CONFIG)
   if (existsSync(configDir)) {
     const config: PipelineConfig = JSON.parse(readFileSync(configDir, "utf-8"))
     if (config.stages?.length) return config.stages
@@ -169,7 +164,6 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
               join(root(), ".opencode", "skills", "dct-testing", "reference", f),
               join(homedir(), ".config", "opencode", "skills", "dct-schema", "schema", f),
               join(homedir(), ".config", "opencode", "skills", "dct-testing", "reference", f),
-              join(process.platform === "win32" ? join(homedir(), "AppData", "Roaming") : join(homedir(), ".config"), "opencode", "skills", "dct-schema", "schema", f),
             ]
             for (const p of candidates) {
               if (existsSync(p)) {
