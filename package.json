@@ -3,12 +3,12 @@
   "version": "2.0.0",
   "description": "dream-come-true plugin for opencode — 6-stage SDLC pipeline from idea to production code",
   "type": "module",
-  "main": "index.ts",
+  "main": "dct-engine.ts",
   "exports": {
-    ".": "./index.ts"
+    ".": "./dct-engine.ts"
   },
   "files": [
-    "index.ts",
+    "dct-engine.ts",
     "install.js",
     "assets/",
     "template/",
