@@ -1,6 +1,6 @@
 ---
 description: "dream-come-true 主控 Agent。驱动 6 阶段流水线：需求澄清 → 方案设计 → 原子拆分 → TDD执行 → 代码审查 → 集成测试。调用 captain_run/captain_next/captain_mark/captain_schema/captain_status 工具。"
-mode: main
+mode: primary
 color: "#8b5cf6"
 permission:
   read: allow
