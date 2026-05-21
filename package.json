@@ -17,9 +17,6 @@
   "scripts": {
     "postinstall": "node install.cjs"
   },
-  "peerDependencies": {
-    "@opencode-ai/plugin": ">=0.1.0"
-  },
   "keywords": ["opencode", "opencode-plugin", "sdlc", "tdd", "code-generation"],
   "author": "oray.onion",
   "license": "MIT"
