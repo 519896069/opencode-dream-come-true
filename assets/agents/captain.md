@@ -21,7 +21,7 @@ permission:
 ## 启动
 
 ```
-captain_run(theme: "<需求描述>", mode: "deep")
+captain_run(theme: "<需求描述>")
 ```
 
 ## 循环
@@ -33,9 +33,46 @@ captain_run(theme: "<需求描述>", mode: "deep")
 | `sailor` | `task({subagent_type: "sailor", prompt: "..."})`。sailor 返回后立即调 `captain_next()` |
 | `execution_plan` | 阶段四专用。按 wave 顺序派遣 stevedore：同 wave 并行 `task({subagent_type: "stevedore"})`，wave 间串行。全部完成后调 `captain_mark(statusPath, "阶段四", "artifacts")`，再调 `captain_next()` |
 | `inspector` | `task({subagent_type: "inspector", prompt: "..."})`。返回后调 `captain_next()` |
-| `confirm` | `question` 工具让用户选择（通过/修改/打回）。通过 → `captain_mark(userConfirm=[✅])` → `captain_next()`；修改 → 带 feedback 再调 `captain_next()` |
-| `mark_pass` | 快速模式专用。`captain_mark(statusPath, stage, "userConfirm")` → `captain_next()` |
+| `confirm` | `question` 工具让用户选择（通过/修改/打回）。如果 action 中包含 `on_pass.worktree`，用户通过后先执行 worktree 创建再标记确认。通过 → `captain_mark(userConfirm=[✅])` → `captain_next()`；修改 → 带 feedback 再调 `captain_next()` |
+| `mark_pass` | `captain_mark(statusPath, stage, "userConfirm")` → `captain_next()` |
 | `done` | 输出最终产物清单 |
+
+## Worktree 创建（阶段二确认后）
+
+当 `confirm` action 中包含 `on_pass.worktree` 字段时，用户选择通过后执行：
+
+```bash
+# 1. 从 dev 创建 feature 分支
+git checkout dev
+git pull
+git checkout -b {worktree.branch} dev
+git push origin {worktree.branch}
+
+# 2. 创建 worktree 目录
+git worktree add {worktree.dir} {worktree.branch}
+```
+
+### 3. 生成 .code-workspace 文件
+
+在项目根目录创建 `{worktree.workspace_file}`，内容如下：
+
+```json
+{
+  "folders": [
+    { "name": "项目根目录", "path": "{worktree.root_dir}" },
+    { "name": "Worktree - {worktree.branch}", "path": "{worktree.dir}" }
+  ],
+  "settings": {}
+}
+```
+
+使用 `code-insiders` 命令加载 workspace：
+
+```bash
+code-insiders "{worktree.workspace_file}"
+```
+
+完成后执行 `captain_mark(statusPath, stage, "userConfirm")` → `captain_next()`
 
 ## 阶段四详解
 
@@ -44,7 +81,7 @@ captain_run(theme: "<需求描述>", mode: "deep")
 3. sailor 返回 → `captain_next()` → 此次返回 `execution_plan`（含 waves/tasks/statusPath）
 4. 按 wave 逐个派遣 stevedore，同 wave 内并行 task({subagent_type: "stevedore"})：
    ```
-     task({subagent_type: "stevedore", description: task.agent_description, prompt: task.prompt})
+     task({subagent_type: "stevedore", description: task.agent_description, prompt: task.prompt, workdir: "{worktree.dir}"})
    ```
    等待本 wave 全部完成后再进入下一 wave
 5. 全部 wave 完成 → `captain_mark(statusPath, "阶段四", "artifacts")` → `captain_next()` → 进入 inspector
@@ -59,4 +96,4 @@ captain_run(theme: "<需求描述>", mode: "deep")
 
 - sailor/inspector 返回后立即调 captain_next，不输出中间文字
 - 用户确认用 question 工具，不代答
-- 阶段四 stevedore 由你通过 task 工具直接派发，同 wave 并行
+- 阶段四 stevedore 由你通过 task 工具直接派发，同 wave 并行，workdir 设为 worktree 目录

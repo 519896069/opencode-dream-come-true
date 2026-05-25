@@ -3,49 +3,16 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs"
 import { join, dirname } from "path"
 import { homedir } from "os"
 
-const PIPELINE_CONFIG = "pipeline.config.json"
 const EXECUTION_PLAN_PATH = ".opencode/run/latest-execution-plan.json"
 
-interface Stage {
-  number: number
-  name: string
-  skill: string
-  artifacts: string[]
-  effort: "high" | "max" | "medium"
-  aiReview: boolean | "skip"
-  parallel: boolean
-}
-
-interface PipelineConfig { stages: Stage[] }
-
-const DEFAULT_STAGES: Stage[] = [
-  { number: 1, name: "需求澄清", skill: "dct-normalization", artifacts: ["requirement.md", "fields.md", "checkpoint.md", "boundary.md"], effort: "high", aiReview: "skip", parallel: false },
+const STAGES: Stage[] = [
+  { number: 1, name: "需求澄清", skill: "dct-normalization", artifacts: ["requirement.md", "fields.md", "checkpoint.md", "boundary.md"], effort: "high", aiReview: false, parallel: false },
   { number: 2, name: "方案设计", skill: "dct-design", artifacts: ["design-analysis.md", "design.md", "api.json", "test-case.md"], effort: "max", aiReview: true, parallel: false },
   { number: 3, name: "原子拆分", skill: "dct-planning", artifacts: ["plan.md"], effort: "max", aiReview: true, parallel: false },
   { number: 4, name: "TDD执行", skill: "dct-execution", artifacts: [], effort: "medium", aiReview: true, parallel: true },
-  { number: 5, name: "代码审查", skill: "dct-review", artifacts: ["review-log.md"], effort: "high", aiReview: true, parallel: false },
-  { number: 6, name: "集成测试+E2E", skill: "dct-testing", artifacts: ["test-report.md"], effort: "high", aiReview: "skip", parallel: false },
+  { number: 5, name: "代码审查", skill: "dct-review", artifacts: ["review-log.md"], effort: "high", aiReview: false, parallel: false },
+  { number: 6, name: "集成测试+E2E", skill: "dct-testing", artifacts: ["test-report.md"], effort: "high", aiReview: false, parallel: false },
 ]
-
-function resolvePipelineConfig(projectRoot: string): string {
-  const candidate = join(projectRoot, PIPELINE_CONFIG)
-  if (existsSync(candidate)) return candidate
-  return candidate
-}
-
-function loadStages(projectRoot: string): Stage[] {
-  const configPath = resolvePipelineConfig(projectRoot)
-  if (existsSync(configPath)) {
-    const config: PipelineConfig = JSON.parse(readFileSync(configPath, "utf-8"))
-    if (config.stages?.length) return config.stages
-  }
-  const configDir = join(homedir(), ".config", "opencode", PIPELINE_CONFIG)
-  if (existsSync(configDir)) {
-    const config: PipelineConfig = JSON.parse(readFileSync(configDir, "utf-8"))
-    if (config.stages?.length) return config.stages
-  }
-  return DEFAULT_STAGES
-}
 
 function findCurrentStage(status: { stages: { stage: string; artifacts: string; aiReview: string; userConfirm: string }[] }, stages: Stage[]) {
   for (let i = 0; i < status.stages.length; i++) {
@@ -63,7 +30,7 @@ function findCurrentStage(status: { stages: { stage: string; artifacts: string; 
 
 export const DreamComeTruePlugin: Plugin = async (ctx) => {
   const root = () => ctx.directory || process.cwd()
-  const getStages = () => loadStages(root())
+  const getStages = () => STAGES
   const prdDir = () => join(root(), "prd")
 
   return {
@@ -72,7 +39,6 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
         description: "启动 dream-come-true 流水线。根据需求主题创建 status.md 并初始化。",
         args: {
           theme: tool.schema.string({ description: "需求主题描述" }),
-          mode: tool.schema.enum(["deep", "fast"], { description: "深度模式需要用户确认，快速模式自动决策" }),
         },
         async execute(args) {
           const stages = getStages()
@@ -105,10 +71,9 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
       }),
 
       captain_next: tool({
-        description: "执行一轮阶段循环。读取 status.md 和 pipeline.config.json，返回 action JSON。",
-        args: { mode: tool.schema.enum(["deep", "fast"], { description: "执行模式" }) },
-        async execute(args) {
-          const mode = args.mode || "deep"
+        description: "执行一轮阶段循环。读取 status.md 判断当前阶段，返回 action JSON。",
+        args: {},
+        async execute() {
           const stages = getStages()
           const filesResult = await ctx.client.find.files({ query: { query: "**/status.md", type: "file", directory: prdDir(), limit: 5 } })
           if (!filesResult.data?.length) return "未找到 status.md，请先调用 captain_run。"
@@ -124,6 +89,10 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
           const stageKey = `阶段${stage.number}`
           const prdDirName = dirname(statusPath).split(/[\\\/]/).pop() || ""
 
+          // 从 status.md 标题提取 slug（主题的 URL 化版本）
+          const themeMatch = content.match(/# (.+?) - 状态追踪/)?.[1] || ""
+          const slug = themeMatch.toLowerCase().replace(/[^\x00-\x7F]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "new-requirement"
+
           switch (action) {
             case "sailor":
               return JSON.stringify({ action: "sailor", stepname: stage.name, stage: stageKey, dispatch: { stage_skill: stage.skill, stage_name: stage.name, effort_level: stage.effort, prd_dir: prdDirName, prev_artifacts: index > 0 ? stages[index - 1].artifacts : [], current_artifacts: stage.artifacts } })
@@ -138,7 +107,29 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
             case "inspector":
               return JSON.stringify({ action: "inspector", stepname: stage.name, stage: stageKey, artifacts: stage.artifacts.map(a => `prd/${prdDirName}/${a}`), checkpoint_path: `prd/${prdDirName}/checkpoint.md` })
             case "confirm":
-              if (mode === "fast") return JSON.stringify({ action: "mark_pass", stepname: stage.name, stage: stageKey, statusPath })
+              // 阶段4(TDD执行)和阶段5(代码审查)自动通过，不需要用户确认
+              if (stage.number === 4 || stage.number === 5) {
+                return JSON.stringify({ action: "mark_pass", stepname: stage.name, stage: stageKey, statusPath })
+              }
+              // 阶段二确认后，需要创建 worktree 目录 + vscode workspace
+              if (stage.number === 2) {
+                const worktreeDir = `worktree/dev_v1.0.0/feature-${slug}`
+                return JSON.stringify({
+                  action: "confirm",
+                  stepname: stage.name,
+                  stage: stageKey,
+                  statusPath,
+                  on_pass: {
+                    worktree: {
+                      branch: `feature/${slug}`,
+                      base_branch: "dev",
+                      dir: worktreeDir,
+                      workspace_file: `${slug}.code-workspace`,
+                      root_dir: ".",
+                    }
+                  }
+                })
+              }
               return JSON.stringify({ action: "confirm", stepname: stage.name, stage: stageKey, statusPath })
           }
         },

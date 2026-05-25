@@ -40,18 +40,6 @@ if (action !== "skip") {
     console.log("  skills installed")
   }
 
-  const pipelineTemplate = join(pkgRoot, "template", "pipeline.config.json")
-  if (existsSync(pipelineTemplate)) {
-    copyFileSync(pipelineTemplate, join(configDir, "pipeline.config.json"))
-    console.log("  pipeline.config.json installed to", configDir)
-  }
-
-  const pipelineSchema = join(pkgRoot, "template", "pipeline.schema.json")
-  if (existsSync(pipelineSchema)) {
-    copyFileSync(pipelineSchema, join(configDir, "pipeline.schema.json"))
-    console.log("  pipeline.schema.json installed to", configDir)
-  }
-
   // copy plugin entry point to plugins/
   const pluginSrc = join(pkgRoot, "dct-engine.ts")
   const pluginDest = join(configDir, "plugins", "dream-come-true.ts")
