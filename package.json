@@ -1,6 +1,6 @@
 {
   "name": "dream-come-true",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "dream-come-true plugin for opencode — 6-stage SDLC pipeline from idea to production code",
   "type": "module",
   "main": "dct-engine.ts",
