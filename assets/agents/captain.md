@@ -21,7 +21,7 @@ permission:
 ## 启动
 
 ```
-captain_run(theme: "<需求描述>")
+captain_run(theme: "<需求描述>", version: "<迭代版本号>")
 ```
 
 ## 循环
