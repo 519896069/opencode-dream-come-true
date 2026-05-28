@@ -39,28 +39,48 @@ captain_run(theme: "<需求描述>", version: "<迭代版本号>")
 
 ## Worktree 创建（阶段二确认后）
 
-当 `confirm` action 中包含 `on_pass.worktree` 字段时，用户选择通过后执行：
+当 `confirm` action 中包含 `on_pass.worktree` 字段时，用户选择通过后执行以下操作，**不可跳过**：
+
+`on_pass.worktree` 字段结构：
+- `branch`: 分支名，如 `dev_v1.0.0/feature_xxx_fzp`
+- `base_branch`: 基准分支，固定为 `dev`
+- `workspace_file`: workspace 文件的绝对路径
+- `worktree_base`: worktree 根目录的绝对路径
+
+### 1. 读取 design.md 获取涉及项目
+
+读取 `prd/{prd_dir}/design.md`，找到 `## 涉及项目` 章节，提取项目路径列表（每行一个相对路径）。
+
+如果没有这个章节或为空，则跳过 worktree 创建。
+
+### 2. 为每个项目创建分支和 worktree
+
+对每个项目：
 
 ```bash
-# 1. 从 dev 创建 feature 分支
+# 进入项目目录
+cd {项目根目录}/{project}
+
+# 从 dev 创建 feature 分支
 git checkout dev
 git pull
 git checkout -b {worktree.branch} dev
 git push origin {worktree.branch}
 
-# 2. 创建 worktree 目录
-git worktree add {worktree.dir} {worktree.branch}
+# 创建 worktree 目录（确保父目录存在）
+mkdir -p {worktree_base}/{project}
+git worktree add {worktree_base}/{project} {worktree.branch}
 ```
 
 ### 3. 生成 .code-workspace 文件
 
-在项目根目录创建 `{worktree.workspace_file}`，内容如下：
+在 `{workspace_file}` 创建 workspace 文件，只包含各个 worktree 目录：
 
 ```json
 {
   "folders": [
-    { "name": "项目根目录", "path": "{worktree.root_dir}" },
-    { "name": "Worktree - {worktree.branch}", "path": "{worktree.dir}" }
+    { "name": "{project1名称}", "path": "{worktree_base}/{project1}" },
+    { "name": "{project2名称}", "path": "{worktree_base}/{project2}" }
   ],
   "settings": {}
 }
@@ -69,7 +89,7 @@ git worktree add {worktree.dir} {worktree.branch}
 使用 `code-insiders` 命令加载 workspace：
 
 ```bash
-code-insiders "{worktree.workspace_file}"
+code-insiders "{workspace_file}"
 ```
 
 完成后执行 `captain_mark(statusPath, stage, "userConfirm")` → `captain_next()`

@@ -47,6 +47,7 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
           if (filesResult.data?.length) {
             return `检测到已有 status.md：${filesResult.data[0]}，执行断点续传。请调用 captain_next 继续。`
           }
+          const rootDir = root()
           const dateStr = new Date().toISOString().slice(0, 10)
           const version = args.version || "v1.0.0"
           // 从 theme 中提取 1-3 个单词作为需求简述
@@ -58,9 +59,23 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
           const fullPrdDir = join(prdDir(), dirName)
           mkdirSync(fullPrdDir, { recursive: true })
           const statusPath = join(fullPrdDir, "status.md")
+
+          // 处理 projects 参数，生成 worktree 信息
+          const projects: string[] = args.projects || []
+          const worktreeBase = join(rootDir, "agent-workspace", "worktree", `dev_${version}`)
+          const worktreeEntries = projects.map(p => ({
+            project: p,
+            worktreeDir: join(worktreeBase, `feature_${brief}_fzp`, p.replace(/[/\\]/g, "_")),
+            branch: branch,
+          }))
+
+          const projectRows = worktreeEntries.map(e =>
+            `| ${e.project} | ${branch} | worktree/dev_${version}/feature_${brief}_fzp/${e.project.replace(/[/\\]/g, "_")}/ |`
+          ).join("\n")
+
           const stageRows = stages.map(s => {
             const aiReview = s.aiReview === true ? "[ ]" : "-"
-            const userConfirm = s.number === 1 || s.number === 4 || s.number === 5 ? "[✅]" : "[ ]"
+            const userConfirm = s.number === 1 || s.number === 4 || s.number === 5 ? "-" : "[ ]"
             return `| 阶段${s.number}：${s.name} | [ ] | ${aiReview} | ${userConfirm} |`
           }).join("\n")
           const content = [
@@ -68,11 +83,22 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
             `> 创建时间：${dateStr}`, `> 最后更新：${dateStr}`,
             ``, `## 需求配置`, `| 配置项 | 值 |`, `|--------|-----|`,
             `| 迭代版本 | ${version} |`, `| 需求分支 | ${branch} |`,
-            `| worktree 目录 | worktree/${branch}/ |`,
+            ``, `## 项目 worktree 映射`, `| 项目 | 分支 | worktree 目录 |`, `|------|------|--------------|`, projectRows,
             ``, `## 阶段进度`, `| 阶段 | 产物 | AI审查 | 用户确认 |`, `|------|------|--------|----------|`, stageRows,
             ``, `## 产物索引`, `| 阶段 | 产物文件 |`, `|------|----------|`, ...stages.map(s => `| 阶段${s.number} | |`),
           ].join("\n")
           writeFileSync(statusPath, content, "utf-8")
+          // 构建 worktree config 写入 json 文件，供后续阶段使用
+          const worktreeConfig = {
+            version,
+            branch,
+            projects: worktreeEntries,
+            workspaceFile: join(worktreeBase, `feature_${brief}_fzp.code-workspace`),
+            worktreeBase: worktreeBase,
+            brief,
+          }
+          const worktreeConfigPath = join(fullPrdDir, "worktree.json")
+          writeFileSync(worktreeConfigPath, JSON.stringify(worktreeConfig, null, 2), "utf-8")
           return `已创建 PRD：${dirName}。请调用 captain_next 执行第一轮。`
         },
       }),
@@ -95,11 +121,15 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
           if (!stage || index === null) return JSON.stringify({ action: "done", message: "全部完成！" })
           const stageKey = `阶段${stage.number}`
           const prdDirName = dirname(statusPath).split(/[\\\/]/).pop() || ""
+          const prdDirPath = dirname(statusPath)
 
-          // 从 status.md 中读取需求分支和版本号
-          const branchMatch = content.match(/\| 需求分支 \| (.+?) \|/)
-          const branch = branchMatch?.[1] || "dev_v1.0.0/feature_new_fzp"
-          const slug = branch.replace(/^dev_[\w.]+\//, "").replace(/_fzp$/, "")
+          // 读取 worktree.json
+          let worktreeConfig: any = null
+          const worktreeConfigPath = join(prdDirPath, "worktree.json")
+          if (existsSync(worktreeConfigPath)) {
+            worktreeConfig = JSON.parse(readFileSync(worktreeConfigPath, "utf-8"))
+          }
+          const branch = worktreeConfig?.branch || "dev_v1.0.0/feature_new_fzp"
 
           switch (action) {
             case "sailor":
@@ -121,7 +151,23 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
               }
               // 阶段二确认后，需要创建 worktree 目录 + vscode workspace
               if (stage.number === 2) {
-                const worktreeDir = `worktree/${branch}`
+                if (!worktreeConfig) {
+                  return JSON.stringify({ action: "confirm", stepname: stage.name, stage: stageKey, statusPath })
+                }
+                // 读取 design.md 提取涉及项目列表
+                const designPath = join(prdDirPath, "design.md")
+                let projects: string[] = []
+                if (existsSync(designPath)) {
+                  const designContent = readFileSync(designPath, "utf-8")
+                  // 解析 "## 涉及项目" 章节
+                  const projectSection = designContent.match(/## 涉及项目\s*\n([\s\S]*?)(?=\n## |$)/)?.[1] || ""
+                  projects = projectSection.split("\n")
+                    .map(line => line.replace(/^[-*]\s*/, "").trim())
+                    .filter(line => line && line !== "无")
+                }
+                if (projects.length === 0) {
+                  return JSON.stringify({ action: "confirm", stepname: stage.name, stage: stageKey, statusPath })
+                }
                 return JSON.stringify({
                   action: "confirm",
                   stepname: stage.name,
@@ -129,11 +175,11 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
                   statusPath,
                   on_pass: {
                     worktree: {
-                      branch: branch,
+                      branch: worktreeConfig.branch,
                       base_branch: "dev",
-                      dir: worktreeDir,
-                      workspace_file: `${branch.replace(/\//g, "_")}.code-workspace`,
-                      root_dir: ".",
+                      projects: projects,
+                      workspace_file: worktreeConfig.workspaceFile,
+                      worktree_base: worktreeConfig.worktreeBase,
                     }
                   }
                 })
@@ -146,7 +192,7 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
       captain_schema: tool({
         description: "查询当前阶段的产物 Schema。返回 schema 文件内容。",
         args: { stage: tool.schema.number({ description: "阶段编号（1-6）" }) },
-        execute(args) {
+        async execute(args) {
           const map: Record<number, string[]> = {
             1: ["normalization.md"],
             2: ["design.md", "api.json.md"],
