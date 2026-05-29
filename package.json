@@ -4,22 +4,16 @@
   "description": "dream-come-true plugin for opencode — 6-stage SDLC pipeline from idea to production code",
   "type": "module",
   "main": "dct-engine.ts",
-  "bin": {
-    "dream-come-true": "bin/dream-come-true.cjs"
-  },
   "exports": {
     ".": "./dct-engine.ts"
   },
   "files": [
     ".agents/",
-    "bin/",
     "dct-engine.ts",
-    "postinstall.cjs",
     "src/",
     "README.md"
   ],
   "scripts": {
-    "postinstall": "node postinstall.cjs"
   },
   "keywords": [
     "opencode",
