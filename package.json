@@ -8,13 +8,12 @@
     ".": "./dct-engine.ts"
   },
   "files": [
+    ".agents/",
     "dct-engine.ts",
-    "install.cjs",
-    "assets/",
+    "src/",
     "README.md"
   ],
   "scripts": {
-    "postinstall": "node install.cjs"
   },
   "keywords": [
     "opencode",

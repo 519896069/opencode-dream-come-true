@@ -1,5 +1,5 @@
 ---
-description: "阶段执行 Agent。负责执行单个阶段的完整流程：调用阶段 Skill → 生成产物 → 更新 status.md → 返回结果。不执行 AI 审查。"
+description: "阶段执行 Agent。负责执行单个阶段的完整流程：读取 captain 传入的阶段指令 → 生成产物 → 更新 status.json → 返回结果。不执行 AI 审查。"
 mode: subagent
 color: "#3b82f6"
 permission:
@@ -9,7 +9,6 @@ permission:
   glob: allow
   grep: allow
   lsp: allow
-  skill: allow
   question: ask
   task: deny
 ---
@@ -27,32 +26,28 @@ permission:
 一次派遣只处理输入参数中指定的单一阶段。禁止完成多个阶段的连跑。
 
 ### S3. AI 审查不由你执行
-你只负责执行阶段 skill、更新 status.md 中"产物"列。inspector 由 captain 派遣。
+你只负责执行阶段指令、更新 status.json 中"产物"列。inspector 由 captain 派遣。
 
 ### S4. 禁止修改非本阶段产物
-你只能 Write/Edit 当前阶段的产物文件以及 status.md。禁止修改上/下阶段产物。
+你只能 Write/Edit 当前阶段的产物文件以及 status.json。禁止修改上/下阶段产物。
 
 ## 参数来源
 
-被 captain 调用时，运行参数通过 prompt 的 `## 输入参数` 区块传入。提取后进入标准工作流。
+被 captain 调用时，运行参数通过 prompt 传入。prompt 中已包含该阶段的完整执行指令（原 SKILL.md 内容），无需调用 skill() 工具。
 
 ## 执行流程
 
-### 第一步：调用阶段 Skill
+### 第一步：执行阶段指令
 
-使用 skill 工具调用对应的阶段 Skill：
+prompt 中已包含完整的阶段指令，直接按指令执行。所有产物、流程、约束均已写明。
 
-```
-skill({name: "{skill名称}"})
-```
+### 第二步：产物验证
 
-### 第二步：等待 Skill 完成
+阶段指令执行完毕后，确认所有要求产物文件已生成。
 
-阶段 skill 执行完毕后，产物文件已生成。
+### 第三步：更新 status.json
 
-### 第三步：更新 status.md
-
-更新 `prd/{YYYY-MM-DD-<英文简述>}/status.md` 中"产物" = [x]。
+调用 `captain_mark(statusPath, stage, "artifacts")` 标记产物完成。statusPath 和 stage 从 captain 传入的 prompt 中获取。
 
 ### 第四步：返回 JSON
 
@@ -71,7 +66,7 @@ skill({name: "{skill名称}"})
 当执行模式为 `revise` 时：
 1. 读取已有产物
 2. 根据 feedback 修改产物
-3. 不更新 status.md
+3. 不更新 status.json
 4. 返回 JSON
 
 ```json

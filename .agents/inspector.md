@@ -43,7 +43,7 @@ permission:
 你没有 task 工具，不应尝试派遣任何子 agent。
 
 ### I4. 禁止读取/修改非本阶段相关文件
-只能 Read/Edit 当前阶段的产物文件、checkpoint.md、status.md、以及审查报告文件。
+只能 Read/Edit 当前阶段的产物文件、checkpoint.md、status.json、以及审查报告文件。
 
 ## 执行流程
 
@@ -61,9 +61,9 @@ permission:
 
 ### 第四步：重新审查
 修复后重新检查，直到全部规则通过。最多 3 次修复循环。
+### 第五步：更新 status.json
 
-### 第五步：更新 status.md
-将该阶段的"AI审查"列标记为 [x]。
+调用 `captain_mark(statusPath, stage, "aiReview")` 标记审查完成。statusPath 从 captain 传入的 prompt 中获取。
 
 ### 第六步：输出审查报告
 

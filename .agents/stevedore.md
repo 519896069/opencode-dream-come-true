@@ -120,4 +120,4 @@ npx jest --coverage
 - ❌ 跨接口实现
 - ❌ 读取其他执行单元的实现代码
 - ❌ 超出 artifacts_dir 范围写文件
-- ❌ 写 status.md
+- ❌ 写 status.json
