@@ -1,6 +1,7 @@
 ---
 description: "阶段四 TDD 执行器。接收完整契约 prompt，严格按 RED→GREEN→验证 循环将实现要点 checklist 翻译为代码。使用快速模型。"
 mode: subagent
+hidden: true
 color: "#16a34a"
 permission:
   read: allow

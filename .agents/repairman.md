@@ -1,6 +1,7 @@
 ---
 description: "BUG 修复执行 Agent。接收 BUG 文件（含根因分析和修复建议），按 TDD 方式实现修复代码，确保测试通过。"
 mode: subagent
+hidden: true
 color: "#ea580c"
 permission:
   read: allow

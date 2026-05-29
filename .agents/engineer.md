@@ -1,6 +1,7 @@
 ---
 description: "BUG 根因分析 Agent。接收 BUG 描述文件，使用 grep/Lsp/Read 分析代码、使用 MySQL MCP 查询数据库，定位根因并附带证据。"
 mode: subagent
+hidden: true
 color: "#dc2626"
 permission:
   read: allow

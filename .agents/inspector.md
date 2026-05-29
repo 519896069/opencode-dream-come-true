@@ -1,6 +1,7 @@
 ---
 description: "AI 文档一致性审查 Agent。审查阶段二~阶段五的产物，以 checkpoint.md 为准，发现问题后自动修复。阶段一和六不需要 AI 审查。"
 mode: subagent
+hidden: true
 color: "#ca8a04"
 permission:
   read: allow

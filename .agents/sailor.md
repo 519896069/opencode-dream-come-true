@@ -1,6 +1,7 @@
 ---
 description: "阶段执行 Agent。负责执行单个阶段的完整流程：读取 captain 传入的阶段指令 → 生成产物 → 更新 status.json → 返回结果。不执行 AI 审查。"
 mode: subagent
+hidden: true
 color: "#3b82f6"
 permission:
   read: allow
