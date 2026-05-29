@@ -9,6 +9,7 @@
   },
   "files": [
     ".agents/",
+    ".opencode/",
     "dct-engine.ts",
     "src/",
     "README.md"
