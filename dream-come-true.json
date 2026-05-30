@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agents": {
+    "captain": {},
+    "engineer": { "disable": true },
+    "inspector": { "disable": true },
+    "repairman": { "disable": true },
+    "sailor": { "disable": true },
+    "stevedore": { "disable": true },
+    "first-mate": { "disable": true }
+  }
+}

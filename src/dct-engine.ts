@@ -17,7 +17,27 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
   const root = () => ctx.directory || process.cwd()
   const prdDir = () => join(root(), "prd")
 
+  // 读取 dream-come-true.json 配置
+  const loadPluginConfig = () => {
+    const configPath = join(root(), "dream-come-true.json")
+    if (existsSync(configPath)) {
+      try {
+        return JSON.parse(readFileSync(configPath, "utf-8"))
+      } catch {
+        return {}
+      }
+    }
+    return {}
+  }
+
   return {
+    config: async (config) => {
+      const pluginConfig = loadPluginConfig()
+      if (pluginConfig.agents) {
+        if (!config.agent) config.agent = {}
+        Object.assign(config.agent, pluginConfig.agents)
+      }
+    },
     tool: {
       captain_run: tool({
         description: "启动 dream-come-true 流水线。传入 theme(需求主题)、version(迭代版本号)。",

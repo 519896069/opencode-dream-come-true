@@ -11,6 +11,7 @@
     ".agents/",
     ".opencode/",
     "dct-engine.ts",
+    "dream-come-true.json",
     "src/",
     "README.md"
   ],
