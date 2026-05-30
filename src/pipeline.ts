@@ -4,7 +4,7 @@ import type { Stage } from "./types.js"
 
 const BUILTIN_STAGES: Stage[] = [
   { number: 1, name: "需求澄清", skill: "dct-normalization", artifacts: ["requirement.md", "fields.md", "checkpoint.md", "boundary.md"], effort: "high", aiReview: false, parallel: false, autoPass: true },
-  { number: 2, name: "方案设计", skill: "dct-design", artifacts: ["design-analysis.md", "design.md", "api.json", "test-case.md"], effort: "max", aiReview: true, parallel: false, autoPass: false },
+  { number: 2, name: "方案设计", skill: "dct-design", artifacts: ["design-analysis.md", "design.md", "api.json", "test-case.md", "workspace.code-workspace"], effort: "max", aiReview: true, parallel: false, autoPass: false },
   { number: 3, name: "原子拆分", skill: "dct-planning", artifacts: ["plan.md"], effort: "max", aiReview: true, parallel: false, autoPass: false },
   { number: 4, name: "TDD执行", skill: "dct-execution", artifacts: [], effort: "medium", aiReview: true, parallel: true, autoPass: true },
   { number: 5, name: "代码审查", skill: "dct-review", artifacts: ["review-log.md"], effort: "high", aiReview: false, parallel: false, autoPass: true },

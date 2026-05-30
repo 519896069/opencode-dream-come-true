@@ -99,7 +99,11 @@ export const SCHEMA_DESIGN = [
   "  5.2 DTO (Go struct + binding tag)",
   "  5.3 TypeScript类型",
   "  5.4 SQL DDL",
-  "六、确认结论（checkbox汇总）",
+  "  六、涉及项目",
+  "  ## 涉及项目",
+  "  - backend/api",
+  "  - console",
+  "七、确认结论（checkbox汇总）",
   "```",
 ].join("\n")
 
@@ -148,7 +152,8 @@ export const SCHEMA_EXECUTION = [
   "Step 5: 失败修复(≤3次)",
   "",
   "产出: execution_plan.json → .opencode/run/latest-execution-plan.json",
-  "格式: { total_units, waves: [{wave, unit_ids, note}], tasks: [{unit_id, work_dir, agent_description, prompt}] }",
+  "格式: { total_units, waves: [{wave, unit_ids, note}], tasks: [{unit_id, project, agent_description, prompt}] }",
+  "work_dir 由引擎从 kanban.meta.worktree.projects 按 project 名自动注入。",
 ].join("\n")
 
 export const SCHEMA_REVIEW = [

@@ -1,8 +1,9 @@
 import { execSync } from "child_process"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { join, dirname } from "path"
-import type { StatusJson, WorktreeEntry } from "./types.js"
-import { loadStatus, saveStatus } from "./status-manager.js"
+import type { WorktreeEntry } from "./types.js"
+import { parseKanban, saveKanban } from "./kanban-manager.js"
+import { getStages } from "./pipeline.js"
 import { extractProjectsFromDesign } from "./workspace-manager.js"
 
 export interface WorktreeResult {
@@ -12,22 +13,24 @@ export interface WorktreeResult {
   errors: string[]
 }
 
-export function setupWorktree(statusPath: string, rootDir: string): WorktreeResult {
-  const status = loadStatus(statusPath)
-  const prdDir = dirname(statusPath)
-  const designPath = join(prdDir, "design.md")
+export function setupWorktree(kanbanPath: string, rootDir: string): WorktreeResult {
+  const kanbanDir = dirname(kanbanPath)
+  const designPath = join(kanbanDir, "design.md")
 
   const projects = extractProjectsFromDesign(designPath)
   if (projects.length === 0) {
     return { success: false, projects: [], workspaceFile: "", errors: ["design.md 未找到涉及项目"] }
   }
 
-  const wc = status.worktree
+  const kanban = parseKanban(kanbanPath)
+  const stages = getStages(rootDir)
+
+  const wc = kanban.meta.worktree
   if (!wc) {
-    return { success: false, projects: [], workspaceFile: "", errors: ["status.json 缺少 worktree 配置"] }
+    return { success: false, projects: [], workspaceFile: "", errors: ["kanban.md 缺少 worktree 配置"] }
   }
 
-  const { branch, version } = status.meta
+  const branch = kanban.meta.branch
   const brief = extractBrief(branch)
   const baseBranch = "dev"
 
@@ -87,12 +90,12 @@ export function setupWorktree(statusPath: string, rootDir: string): WorktreeResu
     try { execSync(`code "${workspacePath}"`, { stdio: "pipe" }) } catch { /* 也未安装 code */ }
   }
 
-  status.worktree!.projects = results.filter(r => r.status === "成功").map(r => ({
+  kanban.meta.worktree!.projects = results.filter(r => r.status === "成功").map(r => ({
     project: r.name,
     worktreeDir: r.worktreeDir,
     branch,
   }))
-  saveStatus(statusPath, status)
+  saveKanban(kanbanPath, kanban, stages)
 
   return {
     success: results.some(r => r.status === "成功"),

@@ -46,3 +46,42 @@ export interface CurrentStageResult {
 }
 
 export type MarkColumn = "artifacts" | "aiReview" | "userConfirm"
+
+export interface KanbanMeta {
+  theme: string
+  version: string
+  branch: string
+  createdAt: string
+  updatedAt: string
+  vault?: string
+  worktree?: {
+    baseDir: string
+    workspaceFile: string
+    projects: WorktreeEntry[]
+  }
+}
+
+export interface KanbanStage {
+  number: number
+  name: string
+  artifacts: boolean
+  aiReview: boolean
+  userConfirm: boolean
+  autoPass: boolean
+}
+
+export interface KanbanTask {
+  id: string
+  name: string
+  status: "待开始" | "进行中" | "已完成"
+  dependsOn: string[]
+  contract: string
+  wave?: number
+  work_dir?: string
+}
+
+export interface KanbanData {
+  meta: KanbanMeta
+  stages: KanbanStage[]
+  tasks: KanbanTask[]
+}
