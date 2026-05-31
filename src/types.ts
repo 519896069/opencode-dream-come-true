@@ -1,7 +1,6 @@
 export interface Stage {
   number: number
   name: string
-  skill: string
   artifacts: string[]
   effort: "low" | "medium" | "high" | "max"
   aiReview: boolean

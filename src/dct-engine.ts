@@ -11,7 +11,7 @@ import {
 } from "./kanban-manager.js"
 import { extractProjectsFromDesign } from "./workspace-manager.js"
 import { setupWorktree } from "./worktree-builder.js"
-import { SKILL_CONTENT } from "./skills.js"
+import { STAGE_INSTRUCTIONS } from "./stage-instructions.js"
 import { resolveSchema } from "./schema-resolver.js"
 import { fileExists } from "./utils.js"
 import { buildObsidianResult, type ObsidianAction } from "./obsidian-tool.js"
@@ -113,10 +113,11 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
                   action: "sailor", stepname: stage.name, stage: stageKey,
                   kanbanPath,
                   dispatch: {
-                    stage_skill: stage.skill, stage_name: stage.name,
+                    stage_name: stage.name,
                     effort_level: stage.effort, prd_dir: prdDirName,
                     prev_artifacts: index > 0 ? stages[index - 1].artifacts : [],
                     current_artifacts: stage.artifacts,
+                    stage_instruction: STAGE_INSTRUCTIONS[stageKey] || "",
                   },
                 })
 
@@ -144,10 +145,11 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
                   action: "sailor", stepname: stage.name, stage: stageKey,
                   no_status_update: true, kanbanPath,
                   dispatch: {
-                    stage_skill: stage.skill, stage_name: stage.name,
+                    stage_name: stage.name,
                     effort_level: stage.effort, prd_dir: prdDirName,
                     prev_artifacts: index > 0 ? stages[index - 1].artifacts : [],
                     current_artifacts: stage.artifacts,
+                    stage_instruction: STAGE_INSTRUCTIONS[stageKey] || "",
                   },
                 })
               }
@@ -265,18 +267,6 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
           }
           if (result.success) lines.push("", `workspace: ${result.workspaceFile}`)
           return lines.join("\n")
-        },
-      }),
-
-      captain_skill: tool({
-        description: "获取阶段的完整执行指令。传入 skill 名称（如 dct-design），返回该阶段的完整 SKILL 内容。",
-        args: {
-          name: tool.schema.string({ description: "skill 名称，如 dct-normalization、dct-design、dct-planning、dct-execution、dct-review、dct-testing" }),
-        },
-        async execute(args) {
-          const content = SKILL_CONTENT[args.name]
-          if (!content) return `未找到 skill: ${args.name}`
-          return content
         },
       }),
 

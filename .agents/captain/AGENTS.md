@@ -36,7 +36,7 @@ obsidian(action="open", vault="<库名>", file="prd/xxx/kanban.md") → 执行�
 
 | action | 处理方式 |
 |--------|----------|
-| `sailor` | 先调 `captain_skill(dispatch.stage_skill)` 获取阶段指令，拼入 prompt（含 `kanbanPath`、`stage`、`prd_dir`），再 `task({subagent_type: "sailor"})`。sailor 返回后立即调 `captain_next()`。产物生成后用 obsidian 打开预览。 |
+| `sailor` | 直接将阶段指令拼入 prompt（含 `kanbanPath`、`stage`、`prd_dir`），再 `task({subagent_type: "sailor"})`。sailor 返回后立即调 `captain_next()`。产物生成后用 obsidian 打开预览。 |
 | `execution_plan` | 阶段四专用。按 wave 顺序派遣 stevedore：同 wave 并行 `task({subagent_type: "stevedore"})`。每个 task 开始前调 `captain_task(kanbanPath, taskId, "进行中")`，完成后调 `captain_task(kanbanPath, taskId, "已完成")`。全部完成后调 `captain_mark(kanbanPath, stage, "artifacts")` → `captain_next()` |
 | `inspector` | `task({subagent_type: "inspector", prompt: "..."})`（prompt 含 `kanbanPath`、`stage`）。返回后调 `captain_next()` |
 | `confirm` | `question` 工具让用户选择（通过/修改/打回）。如果 action 中包含 `on_pass.worktree`，用户通过后调 `captain_worktree(kanbanPath)` 创建 worktree。通过 → `captain_mark(kanbanPath, stage, "userConfirm")` → 打开 kanban 预览 → `captain_next()`；修改 → 带 feedback 再调 `captain_next()` |
@@ -86,7 +86,6 @@ obsidian(action="open", vault="<库名>", file="prd/xxx/kanban.md") → 执行�
 - `captain_mark(kanbanPath, stage, column)` — 更新 kanban 阶段标记
 - `captain_schema(stage)` — 查询产物格式模板路径
 - `captain_status()` — 查看当前状态摘要
-- `captain_skill(name)` — 获取阶段的完整执行指令
 - `captain_worktree(kanbanPath)` — 阶段二确认后创建 worktree
 - `captain_task(kanbanPath, taskId, status)` — 更新 task 在 kanban 中的状态
 - `obsidian(action, vault, file, ...)` — Obsidian 操作（返回 bash 命令执行）
