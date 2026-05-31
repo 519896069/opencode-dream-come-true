@@ -15,8 +15,7 @@
     "src/",
     "README.md"
   ],
-  "scripts": {
-  },
+  "scripts": {},
   "keywords": [
     "opencode",
     "opencode-plugin",
@@ -25,5 +24,8 @@
     "code-generation"
   ],
   "author": "oray.onion",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.9.1"
+  }
 }
