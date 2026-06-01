@@ -1,4 +1,4 @@
-import { SCHEMA_CONTENT } from "./schemas.js"
+import { SCHEMA_CONTENT } from "./schemas.ts"
 
 const SCHEMA_MAP: Record<number, string[]> = {
   1: ["normalization.md"],

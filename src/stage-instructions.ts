@@ -37,7 +37,7 @@ export const DCT_NORMALIZATION = [
   "## 禁止",
   "- 追问期间产出任何文件",
   "- 一次问超过 2 个问题",
-  "- 跳过"功能范围"和"字段定义"两个维度",
+  "- 跳过\u201C功能范围\u201D和\u201C字段定义\u201D两个维度",
 ].join("\n")
 
 export const DCT_DESIGN = [

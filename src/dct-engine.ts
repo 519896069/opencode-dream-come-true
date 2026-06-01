@@ -1,29 +1,33 @@
-import { type Plugin, tool } from "@opencode-ai/plugin"
+import { tool } from "@opencode-ai/plugin"
 import { existsSync, readFileSync, readdirSync } from "fs"
 import { join, dirname } from "path"
 import { execSync } from "child_process"
 import { fileURLToPath } from "url"
 
-import { getStages } from "./pipeline.js"
+import { getStages } from "./pipeline.ts"
 import {
   findKanbanFile, parseKanban, saveKanban, findCurrentFromKanban,
   createKanban, markKanbanColumn, getKanbanSummary, getWorktreeFromKanban,
   syncTasksFromPlan, updateKanbanTask,
-} from "./kanban-manager.js"
-import { extractProjectsFromDesign } from "./workspace-manager.js"
-import { setupWorktree } from "./worktree-builder.js"
-import { STAGE_INSTRUCTIONS } from "./stage-instructions.js"
-import { resolveSchema } from "./schema-resolver.js"
-import { fileExists } from "./utils.js"
-import { buildObsidianResult, type ObsidianAction } from "./obsidian-tool.js"
+} from "./kanban-manager.ts"
+import { extractProjectsFromDesign } from "./workspace-manager.ts"
+import { setupWorktree } from "./worktree-builder.ts"
+import { STAGE_INSTRUCTIONS } from "./stage-instructions.ts"
+import { resolveSchema } from "./schema-resolver.ts"
+import { fileExists } from "./utils.ts"
+import { buildObsidianResult, type ObsidianAction } from "./obsidian-tool.ts"
 
-export const DreamComeTruePlugin: Plugin = async (ctx) => {
+export const DreamComeTrueImpl = async (ctx: any) => {
   const root = () => ctx.directory || process.cwd()
   const prdDir = () => join(root(), "prd")
+  const pluginRoot = join(dirname(fileURLToPath(import.meta.url)), "..")
   let currentVault = ""
 
   const loadPluginConfig = () => {
-    const configPath = join(root(), "dream-come-true.json")
+    // 优先从项目根目录加载，其次从插件目录加载
+    const projectConfigPath = join(root(), "dream-come-true.json")
+    const pluginConfigPath = join(pluginRoot, "dream-come-true.json")
+    const configPath = existsSync(projectConfigPath) ? projectConfigPath : pluginConfigPath
     if (existsSync(configPath)) {
       try {
         return JSON.parse(readFileSync(configPath, "utf-8"))
@@ -48,13 +52,10 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
     return { meta, template }
   }
 
-  const loadCommandsFromDir = () => {
+  const loadCommandsFromDir = async () => {
     const commands: Record<string, any> = {}
-    const pluginRoot = join(dirname(fileURLToPath(import.meta.url)), "..")
-    const pluginDir = join(pluginRoot, ".commands")
-    console.log("[dream-come-true] loadCommandsFromDir: pluginRoot=", pluginRoot)
-    console.log("[dream-come-true] loadCommandsFromDir: pluginDir=", pluginDir)
-    console.log("[dream-come-true] loadCommandsFromDir: exists=", existsSync(pluginDir))
+    const pluginDir = join(pluginRoot, ".opencode", "commands")
+    await ctx.client.app.log({ body: { service: "dream-come-true", level: "debug", message: "loadCommandsFromDir", extra: { pluginRoot, pluginDir, exists: existsSync(pluginDir) } } })
     if (!existsSync(pluginDir)) return commands
     try {
       const files = readdirSync(pluginDir).filter(f => f.endsWith(".md"))
@@ -76,19 +77,20 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
 
   return {
     config: async (config) => {
-      console.log("[dream-come-true] config hook executing")
+      await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "config hook executing", extra: { root: root(), pluginRoot, cwd: process.cwd() } } })
       const pluginConfig = loadPluginConfig()
-      console.log("[dream-come-true] pluginConfig:", JSON.stringify(pluginConfig))
+      await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "pluginConfig loaded", extra: { config: JSON.stringify(pluginConfig), projectConfigPath: join(root(), "dream-come-true.json"), pluginConfigPath: join(pluginRoot, "dream-come-true.json"), projectConfigExists: existsSync(join(root(), "dream-come-true.json")), pluginConfigExists: existsSync(join(pluginRoot, "dream-come-true.json")) } } })
       if (pluginConfig.agents) {
         if (!config.agent) config.agent = {}
         Object.assign(config.agent, pluginConfig.agents)
+        await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "agents merged", extra: { agents: Object.keys(pluginConfig.agents) } } })
       }
-      const commands = loadCommandsFromDir()
-      console.log("[dream-come-true] commands loaded:", JSON.stringify(commands))
+      const commands = await loadCommandsFromDir()
+      await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "commands loaded", extra: { commands: Object.keys(commands), count: Object.keys(commands).length } } })
       if (Object.keys(commands).length > 0) {
         if (!config.command) config.command = {}
         Object.assign(config.command, commands)
-        console.log("[dream-come-true] commands merged into config")
+        await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "commands merged into config" } })
       }
     },
 

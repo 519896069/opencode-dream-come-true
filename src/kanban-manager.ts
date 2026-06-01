@@ -3,8 +3,8 @@ import { readFileSync, writeFileSync } from "fs"
 import type {
   Stage, KanbanData, KanbanStage, KanbanTask, WorktreeEntry,
   CurrentStageResult, MarkColumn,
-} from "./types.js"
-import { formatDate, slugify, generateBranch, ensureDir } from "./utils.js"
+} from "./types.ts"
+import { formatDate, slugify, generateBranch, ensureDir } from "./utils.ts"
 
 const KANBAN_PLUGIN = "kanban-plugin: basic"
 const DCT_RE = /<!--dct (.*?)-->/

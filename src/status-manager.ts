@@ -1,6 +1,6 @@
 import { join, dirname } from "path"
-import type { Stage, StatusJson, StageItem, CurrentStageResult, MarkColumn, WorktreeEntry } from "./types.js"
-import { readJson, writeJson, fileExists, formatDate, slugify, generateBranch, ensureDir } from "./utils.js"
+import type { Stage, StatusJson, StageItem, CurrentStageResult, MarkColumn, WorktreeEntry } from "./types.ts"
+import { readJson, writeJson, fileExists, formatDate, slugify, generateBranch, ensureDir } from "./utils.ts"
 
 export async function findStatusFile(findFilesFn: any, prdDir: string): Promise<string | null> {
   const result = await findFilesFn({ query: { query: "**/status.json", type: "file", directory: prdDir, limit: 5 } })

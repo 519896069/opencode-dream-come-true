@@ -1,10 +1,10 @@
 import { execSync } from "child_process"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { join, dirname } from "path"
-import type { WorktreeEntry } from "./types.js"
-import { parseKanban, saveKanban } from "./kanban-manager.js"
-import { getStages } from "./pipeline.js"
-import { extractProjectsFromDesign } from "./workspace-manager.js"
+import type { WorktreeEntry } from "./types.ts"
+import { parseKanban, saveKanban } from "./kanban-manager.ts"
+import { getStages } from "./pipeline.ts"
+import { extractProjectsFromDesign } from "./workspace-manager.ts"
 
 export interface WorktreeResult {
   success: boolean

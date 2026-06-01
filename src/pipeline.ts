@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "fs"
 import { join } from "path"
-import type { Stage } from "./types.js"
+import type { Stage } from "./types.ts"
 
 const BUILTIN_STAGES: Stage[] = [
   { number: 1, name: "需求澄清", artifacts: ["requirement.md", "fields.md", "checkpoint.md", "boundary.md"], effort: "high", aiReview: false, parallel: false, autoPass: true },
