@@ -1,1 +1,1 @@
-export { DreamComeTruePlugin } from "./src/dct-engine.js"
+export { DreamComeTruePlugin } from "./src/dct-engine.ts"

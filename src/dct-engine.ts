@@ -1,7 +1,8 @@
 import { type Plugin, tool } from "@opencode-ai/plugin"
-import { existsSync, readFileSync } from "fs"
+import { existsSync, readFileSync, readdirSync } from "fs"
 import { join, dirname } from "path"
 import { execSync } from "child_process"
+import { fileURLToPath } from "url"
 
 import { getStages } from "./pipeline.js"
 import {
@@ -33,12 +34,61 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
     return {}
   }
 
+  const parseCommandFile = (filePath: string) => {
+    const content = readFileSync(filePath, "utf-8")
+    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/)
+    if (!match) return null
+    const frontmatter = match[1]
+    const template = match[2].trim()
+    const meta: Record<string, string> = {}
+    for (const line of frontmatter.split("\n")) {
+      const kv = line.match(/^(\w+)\s*:\s*(.+)$/)
+      if (kv) meta[kv[1].trim()] = kv[2].trim()
+    }
+    return { meta, template }
+  }
+
+  const loadCommandsFromDir = () => {
+    const commands: Record<string, any> = {}
+    const pluginRoot = join(dirname(fileURLToPath(import.meta.url)), "..")
+    const pluginDir = join(pluginRoot, ".commands")
+    console.log("[dream-come-true] loadCommandsFromDir: pluginRoot=", pluginRoot)
+    console.log("[dream-come-true] loadCommandsFromDir: pluginDir=", pluginDir)
+    console.log("[dream-come-true] loadCommandsFromDir: exists=", existsSync(pluginDir))
+    if (!existsSync(pluginDir)) return commands
+    try {
+      const files = readdirSync(pluginDir).filter(f => f.endsWith(".md"))
+      for (const file of files) {
+        const parsed = parseCommandFile(join(pluginDir, file))
+        if (!parsed) continue
+        const name = file.replace(/\.md$/, "").replace(/-/g, "_")
+        commands[name] = {
+          template: parsed.template,
+          ...(parsed.meta.description && { description: parsed.meta.description }),
+          ...(parsed.meta.agent && { agent: parsed.meta.agent }),
+          ...(parsed.meta.model && { model: parsed.meta.model }),
+          ...(parsed.meta.subtask && { subtask: parsed.meta.subtask === "true" }),
+        }
+      }
+    } catch { /* ignore */ }
+    return commands
+  }
+
   return {
     config: async (config) => {
+      console.log("[dream-come-true] config hook executing")
       const pluginConfig = loadPluginConfig()
+      console.log("[dream-come-true] pluginConfig:", JSON.stringify(pluginConfig))
       if (pluginConfig.agents) {
         if (!config.agent) config.agent = {}
         Object.assign(config.agent, pluginConfig.agents)
+      }
+      const commands = loadCommandsFromDir()
+      console.log("[dream-come-true] commands loaded:", JSON.stringify(commands))
+      if (Object.keys(commands).length > 0) {
+        if (!config.command) config.command = {}
+        Object.assign(config.command, commands)
+        console.log("[dream-come-true] commands merged into config")
       }
     },
 
@@ -63,6 +113,18 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
     },
 
     tool: {
+      captain_check: tool({
+        description: "检查插件环境是否初始化。",
+        args: {},
+        async execute() {
+          const testAuthPath = join(root(), ".opencode", "skills", "test-auth", "SKILL.md")
+          if (existsSync(testAuthPath)) {
+            return "环境已初始化"
+          }
+          return "环境未初始化"
+        },
+      }),
+
       captain_run: tool({
         description: "启动 dream-come-true 流水线。传入 theme(需求主题)、version(迭代版本号)、vault(Obsidian库名)。",
         args: {
@@ -74,6 +136,11 @@ export const DreamComeTruePlugin: Plugin = async (ctx) => {
           const rootDir = root()
           const stages = getStages(rootDir)
           currentVault = args.vault || ""
+
+          const testAuthPath = join(rootDir, ".opencode", "skills", "test-auth", "SKILL.md")
+          if (!existsSync(testAuthPath)) {
+            return "dream-come-true 未初始化 ，运行 /captain_init 初始化插件环境"
+          }
 
           const existing = await findKanbanFile(ctx.client.find.files.bind(ctx.client.find), prdDir())
           if (existing) {

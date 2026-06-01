@@ -9,6 +9,7 @@
   },
   "files": [
     ".agents/",
+    ".commands/",
     ".opencode/",
     "dct-engine.ts",
     "dream-come-true.json",
