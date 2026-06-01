@@ -1,5 +1,5 @@
 import { join, dirname } from "path"
-import { readFileSync, writeFileSync } from "fs"
+import { readFileSync, writeFileSync, readdirSync, statSync } from "fs"
 import type {
   Stage, KanbanData, KanbanStage, KanbanTask, WorktreeEntry,
   CurrentStageResult, MarkColumn,
@@ -24,7 +24,7 @@ export function createKanban(
   const kanbanDir = join(rootDir, "prd", dirName)
   const kanbanPath = join(kanbanDir, "kanban.md")
 
-  const worktreeBase = join(rootDir, "agent-workspace", "worktree", `dev_${version}`)
+  const worktreeBase = join(rootDir, "worktree", `dev_${version}`)
 
   const data: KanbanData = {
     meta: {
@@ -60,10 +60,55 @@ export async function findKanbanFile(
   findFilesFn: any,
   prdDir: string,
 ): Promise<string | null> {
-  const result = await findFilesFn({
-    query: { query: "**/kanban.md", type: "file", directory: prdDir, limit: 5 },
-  })
-  return result.data?.length ? result.data[0] : null
+  // 直接使用备用搜索，避免中文字符目录名问题
+  try {
+    return findKanbanFileRecursive(prdDir)
+  } catch (e) {
+    return null
+  }
+}
+
+// 添加一个新函数，用于在 captain_next 中调用
+export async function findKanbanFileAlternative(
+  findFilesFn: any,
+  rootDir: string,
+): Promise<string | null> {
+  // 尝试搜索整个工作区
+  try {
+    const result = await findFilesFn({
+      query: { query: "**/prd/**/kanban.md", type: "file", limit: 5 },
+    })
+    if (result.data?.length) return result.data[0]
+  } catch (e) {
+    // 忽略错误
+  }
+  
+  // 使用备用搜索
+  const prdDir = join(rootDir, "prd")
+  try {
+    return findKanbanFileRecursive(prdDir)
+  } catch (e) {
+    return null
+  }
+}
+
+function findKanbanFileRecursive(dir: string): string | null {
+  try {
+    const entries = readdirSync(dir)
+    for (const entry of entries) {
+      const fullPath = join(dir, entry)
+      const stat = statSync(fullPath)
+      if (stat.isDirectory()) {
+        const result = findKanbanFileRecursive(fullPath)
+        if (result) return result
+      } else if (entry === "kanban.md") {
+        return fullPath
+      }
+    }
+  } catch (e) {
+    // 忽略权限错误等
+  }
+  return null
 }
 
 export function parseKanban(kanbanPath: string): KanbanData {

@@ -53,7 +53,7 @@ export function createStatus(
   const dirName = `${dateStr}-${slug}`
   const statusDir = join(rootDir, "prd", dirName)
 
-  const worktreeBase = join(rootDir, "agent-workspace", "worktree", `dev_${version}`)
+  const worktreeBase = join(rootDir, "worktree", `dev_${version}`)
   const worktreeEntries: WorktreeEntry[] = projects.map(p => ({
     project: p,
     worktreeDir: join(worktreeBase, `feature_${brief}_fzp`, p.replace(/[/\\]/g, "_")),

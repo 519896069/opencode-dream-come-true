@@ -1,15 +1,35 @@
 import { tool } from "@opencode-ai/plugin"
-import { existsSync, readFileSync, readdirSync } from "fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "fs"
 import { join, dirname } from "path"
 import { execSync } from "child_process"
 import { fileURLToPath } from "url"
 
 import { getStages } from "./pipeline.ts"
 import {
-  findKanbanFile, parseKanban, saveKanban, findCurrentFromKanban,
+  findKanbanFile, findKanbanFileAlternative, parseKanban, saveKanban, findCurrentFromKanban,
   createKanban, markKanbanColumn, getKanbanSummary, getWorktreeFromKanban,
   syncTasksFromPlan, updateKanbanTask,
 } from "./kanban-manager.ts"
+
+// 添加本地递归搜索函数
+function findKanbanFileRecursive(dir: string): string | null {
+  try {
+    const entries = readdirSync(dir)
+    for (const entry of entries) {
+      const fullPath = join(dir, entry)
+      const stat = statSync(fullPath)
+      if (stat.isDirectory()) {
+        const result = findKanbanFileRecursive(fullPath)
+        if (result) return result
+      } else if (entry === "kanban.md") {
+        return fullPath
+      }
+    }
+  } catch (e) {
+    // 忽略权限错误等
+  }
+  return null
+}
 import { extractProjectsFromDesign } from "./workspace-manager.ts"
 import { setupWorktree } from "./worktree-builder.ts"
 import { STAGE_INSTRUCTIONS } from "./stage-instructions.ts"
@@ -55,7 +75,7 @@ export const DreamComeTrueImpl = async (ctx: any) => {
   const loadCommandsFromDir = async () => {
     const commands: Record<string, any> = {}
     const pluginDir = join(pluginRoot, ".opencode", "commands")
-    await ctx.client.app.log({ body: { service: "dream-come-true", level: "debug", message: "loadCommandsFromDir", extra: { pluginRoot, pluginDir, exists: existsSync(pluginDir) } } })
+    await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "loadCommandsFromDir", extra: { pluginRoot, pluginDir, exists: existsSync(pluginDir) } } })
     if (!existsSync(pluginDir)) return commands
     try {
       const files = readdirSync(pluginDir).filter(f => f.endsWith(".md"))
@@ -75,6 +95,84 @@ export const DreamComeTrueImpl = async (ctx: any) => {
     return commands
   }
 
+  // 解析 YAML 风格的 permission 对象
+  const parsePermission = (permissionStr: string): Record<string, any> => {
+    const result: Record<string, any> = {}
+    // 处理简单的 key: value 格式
+    const lines = permissionStr.split("\n").filter(l => l.trim())
+    for (const line of lines) {
+      const match = line.match(/^(\w+)\s*:\s*(.+)$/)
+      if (match) {
+        const key = match[1].trim()
+        const value = match[2].trim()
+        result[key] = value
+      }
+    }
+    return result
+  }
+
+  // 从 .agents/ 目录加载 agent 配置
+  const loadAgentsFromDir = async () => {
+    const agents: Record<string, any> = {}
+    const agentsDir = join(pluginRoot, ".agents")
+
+    await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "loadAgentsFromDir", extra: { agentsDir, exists: existsSync(agentsDir) } } })
+
+    if (!existsSync(agentsDir)) return agents
+
+    try {
+      const subdirs = readdirSync(agentsDir).filter(f => {
+        const fullPath = join(agentsDir, f)
+        return statSync(fullPath).isDirectory()
+      })
+
+      for (const subdir of subdirs) {
+        const agentFile = join(agentsDir, subdir, "AGENTS.md")
+        if (!existsSync(agentFile)) continue
+
+        const content = readFileSync(agentFile, "utf-8")
+        const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+        if (!match) continue
+
+        // 解析 frontmatter
+        const frontmatter = match[1]
+        const meta: Record<string, any> = {}
+        for (const line of frontmatter.split("\n")) {
+          const kv = line.match(/^(\w+)\s*:\s*(.+)$/)
+          if (kv) {
+            let value = kv[2].trim()
+            // 去掉值两端的引号
+            if ((value.startsWith('"') && value.endsWith('"')) ||
+              (value.startsWith("'") && value.endsWith("'"))) {
+              value = value.slice(1, -1)
+            }
+            meta[kv[1].trim()] = value
+          }
+        }
+
+        // 转换为 opencode agent 配置
+        const agentConfig: Record<string, any> = {
+          description: meta.description || "",
+          mode: meta.mode || "subagent",
+          prompt: content, // 将整个 AGENTS.md 内容作为 prompt
+        }
+
+        // 添加可选配置
+        if (meta.model) agentConfig.model = meta.model
+        if (meta.temperature) agentConfig.temperature = parseFloat(meta.temperature)
+        if (meta.color) agentConfig.color = meta.color
+        if (meta.permission) agentConfig.permission = parsePermission(meta.permission)
+
+        agents[subdir] = agentConfig
+        await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "agent loaded from .agents dir", extra: { agent: subdir, config: JSON.stringify(agentConfig) } } })
+      }
+    } catch (e) {
+      await ctx.client.app.log({ body: { service: "dream-come-true", level: "error", message: "loadAgentsFromDir error", extra: { error: String(e) } } })
+    }
+
+    return agents
+  }
+
   return {
     config: async (config) => {
       await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "config hook executing", extra: { root: root(), pluginRoot, cwd: process.cwd() } } })
@@ -85,6 +183,18 @@ export const DreamComeTrueImpl = async (ctx: any) => {
         Object.assign(config.agent, pluginConfig.agents)
         await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "agents merged", extra: { agents: Object.keys(pluginConfig.agents) } } })
       }
+
+      // 从 .agents/ 目录加载 agent 配置（AGENTS.md 文件）
+      const agentsFromDir = await loadAgentsFromDir()
+      await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "config hook agent", extra: { agentsFromDir: agentsFromDir } } })
+
+      if (Object.keys(agentsFromDir).length > 0) {
+        if (!config.agent) config.agent = {}
+        // .agents/ 目录中的配置优先级更高，覆盖 dream-come-true.json 中的配置
+        Object.assign(config.agent, agentsFromDir)
+        await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "agents loaded from .agents dir", extra: { agents: Object.keys(agentsFromDir) } } })
+      }
+
       const commands = await loadCommandsFromDir()
       await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "commands loaded", extra: { commands: Object.keys(commands), count: Object.keys(commands).length } } })
       if (Object.keys(commands).length > 0) {
@@ -95,8 +205,9 @@ export const DreamComeTrueImpl = async (ctx: any) => {
     },
 
     "tool.execute.after": async (input, output) => {
-      if (input.tool !== "write") return
-      const filePath = output.args?.filePath as string
+      await ctx.client.app.log({ body: { service: "dream-come-true", level: "info", message: "tool.execute.after", extra: { input: input, args: { output: output } } } })
+      if (input.tool !== "write" && input.tool !== "edit") return
+      const filePath = output.metadata?.filepath as string
       if (!filePath || !filePath.endsWith(".md")) return
       const prdMatch = filePath.match(/[\\\/]prd[\\\/](.+)/)
       if (!prdMatch) return
@@ -163,7 +274,11 @@ export const DreamComeTrueImpl = async (ctx: any) => {
           const rootDir = root()
           const stages = getStages(rootDir)
 
-          const kanbanPath = await findKanbanFile(ctx.client.find.files.bind(ctx.client.find), prdDir())
+          let kanbanPath = await findKanbanFile(ctx.client.find.files.bind(ctx.client.find), prdDir())
+          if (!kanbanPath) {
+            // 尝试备用搜索
+            kanbanPath = findKanbanFileRecursive(prdDir())
+          }
           if (!kanbanPath) return "未找到 kanban.md，请先调用 captain_run。"
 
           const kanban = parseKanban(kanbanPath)
@@ -319,7 +434,7 @@ export const DreamComeTrueImpl = async (ctx: any) => {
       }),
 
       captain_worktree: tool({
-        description: "创建 worktree。阶段二确认后调用。读取 design.md 获取涉及项目，创建 git 分支和 worktree，生成 .code-workspace 文件。",
+        description: "创建 worktree。阶段二确认后调用。如果成功，必须继续调用 captain_mark 和 captain_next，禁止停止。如果返回包含 'WORKTREE 创建失败'，必须停止流水线执行。",
         args: {
           kanbanPath: tool.schema.string({ description: "kanban.md 的完整路径" }),
         },
@@ -334,7 +449,16 @@ export const DreamComeTrueImpl = async (ctx: any) => {
             lines.push("", "错误：")
             result.errors.forEach(e => lines.push(`  - ${e}`))
           }
-          if (result.success) lines.push("", `workspace: ${result.workspaceFile}`)
+          if (result.success) {
+            lines.push("", `workspace: ${result.workspaceFile}`)
+            lines.push("", "⚠️ worktree 创建成功。你必须立即执行以下步骤：")
+            lines.push(`  1. 调用 captain_mark(kanbanPath: "${args.kanbanPath}", stage: "阶段2", column: "userConfirm")`)
+            lines.push(`  2. 调用 captain_next() 继续流水线`)
+            lines.push("禁止停止，禁止等待用户操作，禁止输出 git 提交指令。")
+          } else {
+            lines.unshift("⛔ WORKTREE 创建失败，流水线无法继续。")
+            lines.push("", "请检查网络连接和 git 权限后重试。")
+          }
           return lines.join("\n")
         },
       }),
@@ -346,7 +470,11 @@ export const DreamComeTrueImpl = async (ctx: any) => {
           const rootDir = root()
           const stages = getStages(rootDir)
 
-          const kanbanPath = await findKanbanFile(ctx.client.find.files.bind(ctx.client.find), prdDir())
+          let kanbanPath = await findKanbanFile(ctx.client.find.files.bind(ctx.client.find), prdDir())
+          if (!kanbanPath) {
+            // 尝试备用搜索
+            kanbanPath = findKanbanFileRecursive(prdDir())
+          }
           if (!kanbanPath) return "暂无进行中的流水线。"
 
           const kanban = parseKanban(kanbanPath)

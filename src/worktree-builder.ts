@@ -72,12 +72,31 @@ export function setupWorktree(kanbanPath: string, rootDir: string): WorktreeResu
     }
   }
 
+  const successfulProjects = results.filter(r => r.status === "成功")
+  const allFailed = successfulProjects.length === 0
+
+  kanban.meta.worktree!.projects = successfulProjects.map(r => ({
+    project: r.name,
+    worktreeDir: r.worktreeDir,
+    branch,
+  }))
+  saveKanban(kanbanPath, kanban, stages)
+
+  if (allFailed) {
+    return {
+      success: false,
+      projects: results,
+      workspaceFile: "",
+      errors: [...errors, "所有项目 worktree 创建失败，无法继续执行"],
+    }
+  }
+
   const workspacePath = wc.workspaceFile
   const wsDir = dirname(workspacePath)
   if (!existsSync(wsDir)) mkdirSync(wsDir, { recursive: true })
 
   writeFileSync(workspacePath, JSON.stringify({
-    folders: results.filter(r => r.status === "成功").map(r => ({
+    folders: successfulProjects.map(r => ({
       name: r.name,
       path: r.worktreeDir,
     })),
@@ -90,15 +109,8 @@ export function setupWorktree(kanbanPath: string, rootDir: string): WorktreeResu
     try { execSync(`code "${workspacePath}"`, { stdio: "pipe" }) } catch { /* 也未安装 code */ }
   }
 
-  kanban.meta.worktree!.projects = results.filter(r => r.status === "成功").map(r => ({
-    project: r.name,
-    worktreeDir: r.worktreeDir,
-    branch,
-  }))
-  saveKanban(kanbanPath, kanban, stages)
-
   return {
-    success: results.some(r => r.status === "成功"),
+    success: true,
     projects: results,
     workspaceFile: workspacePath,
     errors,

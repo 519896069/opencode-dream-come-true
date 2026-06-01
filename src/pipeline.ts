@@ -3,7 +3,7 @@ import { join } from "path"
 import type { Stage } from "./types.ts"
 
 const BUILTIN_STAGES: Stage[] = [
-  { number: 1, name: "需求澄清", artifacts: ["requirement.md", "fields.md", "checkpoint.md", "boundary.md"], effort: "high", aiReview: false, parallel: false, autoPass: true },
+  { number: 1, name: "需求澄清", artifacts: ["requirement.md", "fields.md", "checkpoint.md", "boundary.md"], effort: "high", aiReview: false, parallel: false, autoPass: false },
   { number: 2, name: "方案设计", artifacts: ["design-analysis.md", "design.md", "api.json", "test-case.md", "workspace.code-workspace"], effort: "max", aiReview: true, parallel: false, autoPass: false },
   { number: 3, name: "原子拆分", artifacts: ["plan.md"], effort: "max", aiReview: true, parallel: false, autoPass: false },
   { number: 4, name: "TDD执行", artifacts: [], effort: "medium", aiReview: true, parallel: true, autoPass: true },
