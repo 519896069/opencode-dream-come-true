@@ -1,6 +1,6 @@
 ---
 name: obsidian-guide
-description: 使用 obsidian 工具在 Obsidian 中打开笔记、新建笔记、预览产物或搜索的指南
+description: 使用 obsidian 工具前一定要读取这个skill ,在 Obsidian 中打开笔记、新建笔记、预览产物或搜索的指南
 ---
 
 # obsidian-guide
@@ -56,7 +56,7 @@ captain 在以下环节自动调用 obsidian 工具：
 
 | 时机 | 操作 |
 |------|------|
-| captain_run 之后 | 打开 kanban.md 看板 |
+| dct_run 之后 | 打开 kanban.md 看板 |
 | 阶段产物生成后 | 打开每个生成的产物文件（design.md 等） |
 | kanban 更新后 | 打开 kanban.md 查看最新状态 |
 | inspector 完成 | 打开审查日志 |

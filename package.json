@@ -1,7 +1,7 @@
 {
   "name": "dream-come-true",
   "version": "2.0.3",
-  "description": "dream-come-true plugin for opencode — 6-stage SDLC pipeline from idea to production code",
+  "description": "dream-come-true plugin for opencode — milestone-driven pipeline from idea to executable task plan",
   "type": "module",
   "main": "dct-engine.ts",
   "exports": {
@@ -19,8 +19,8 @@
   "keywords": [
     "opencode",
     "opencode-plugin",
-    "sdlc",
-    "tdd",
+    "milestone",
+    "pipeline",
     "code-generation"
   ],
   "author": "oray.onion",

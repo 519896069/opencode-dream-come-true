@@ -2,36 +2,12 @@
   "$schema": "https://opencode.ai/config.json",
   "agents": {
     "captain": {
-      "model": "xiaomi-token-plan-cn/mimo-v2.5",
+      "model": "xiaomi-token-plan-cn/mimo-v2.5-pro",
       "temperature": 0.4
-    },
-    "first-mate": {
-      "model": "xiaomi-token-plan-cn/mimo-v2.5",
-      "temperature": 0.4
-    },
-    "engineer": {
-      "model": "xiaomi-token-plan-cn/mimo-v2.5-pro",
-      "temperature": 0.1,
-      "hidden": true
-    },
-    "inspector": {
-      "model": "xiaomi-token-plan-cn/mimo-v2.5-pro",
-      "temperature": 0.1,
-      "hidden": true
-    },
-    "repairman": {
-      "model": "xiaomi-token-plan-cn/mimo-v2.5-pro",
-      "temperature": 0.3,
-      "hidden": true
     },
     "sailor": {
       "model": "xiaomi-token-plan-cn/mimo-v2.5",
       "temperature": 0.3,
-      "hidden": true
-    },
-    "stevedore": {
-      "model": "xiaomi-token-plan-cn/mimo-v2.5-pro",
-      "temperature": 0.1,
       "hidden": true
     }
   }

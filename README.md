@@ -1,6 +1,6 @@
 # dream-come-true for opencode
 
-> 将模糊的 idea 经过 6 阶段流水线变成生产级代码 — 开源、零配置、任意项目通用
+> 将模糊的 idea 经过里程碑驱动的流水线变成可执行的任务计划 — 开源、零配置、任意项目通用
 
 ## 安装
 
@@ -24,39 +24,23 @@ npm install --save-dev dream-come-true
   "model": "deepseek-chat",
   "plugin": ["dream-come-true"],
   "agent": {
-    "plan": { "disable": true },
-    "build": { "disable": true },
     "captain": {
-      "description": "dream-come-true 主编排器。通过 captain_run/captain_next/captain_mark/captain_schema/captain_status 工具驱动 6 阶段流水线，将模糊需求转化为生产级代码",
+      "description": "dream-come-true 主控 Agent。里程碑驱动：需求分析与设计(M1) → 任务拆分(M2)",
       "mode": "primary",
       "permission": {
-        "read": "allow", "edit": "ask", "bash": "allow",
+        "read": "allow", "edit": "allow", "bash": "allow",
         "task": { "*": "allow" }, "skill": { "*": "allow" }, "question": "allow",
         "glob": "allow", "grep": "allow", "lsp": "allow"
       },
-      "color": "#2563eb"
+      "color": "#8b5cf6"
     },
     "sailor": {
-      "description": "阶段执行 Agent。执行单个阶段的完整流程：调用阶段 Skill → 生成产物 → 更新 status.md → 返回结果。不执行 AI 审查。",
+      "description": "执行具体任务：explore_code / generate_preview / split_tasks",
       "mode": "subagent", "hidden": true,
-      "permission": { "read": "allow", "edit": "allow", "bash": "allow", "glob": "allow", "grep": "allow", "lsp": "allow", "skill": "allow", "question": "allow", "task": "deny" },
+      "permission": { "read": "allow", "edit": "allow", "bash": "allow", "glob": "allow", "grep": "allow", "lsp": "allow", "question": "allow", "task": "deny" },
       "color": "#3b82f6"
-    },
-    "stevedore": {
-      "description": "阶段四 TDD 执行器。接收完整契约 prompt，严格按 RED→GREEN→验证 循环将实现要点 checklist 翻译为代码。使用快速模型。",
-      "mode": "subagent", "hidden": true,
-      "model": "anthropic/claude-haiku-4-20250514",
-      "permission": { "read": "allow", "edit": "allow", "bash": "allow", "glob": "allow", "grep": "allow", "lsp": "allow", "skill": "deny", "task": "deny", "question": "deny" },
-      "color": "#16a34a"
-    },
-    "inspector": {
-      "description": "AI 文档一致性审查 Agent。审查阶段产物的一致性，以 checkpoint.md 为准，发现问题后自动修复。",
-      "mode": "subagent", "hidden": true,
-      "permission": { "read": "allow", "edit": "allow", "glob": "allow", "grep": "allow", "lsp": "allow", "bash": "deny", "skill": "deny", "task": "deny", "question": "deny" },
-      "color": "#ca8a04"
     }
-  },
-  "permission": { "skill": { "*": "allow" } }
+  }
 }
 ```
 
@@ -68,42 +52,98 @@ opencode
 # captain 为默认 agent，直接输入需求即可
 ```
 
-## 自定义阶段流程（可选）
-
-在项目根目录创建 `pipeline.config.json`：
-
-```json
-{
-  "stages": [
-    { "number": 1, "name": "需求澄清", "skill": "dct-normalization", "artifacts": ["requirement.md", "fields.md", "checkpoint.md", "boundary.md"], "effort": "high", "aiReview": false, "parallel": false },
-    { "number": 2, "name": "方案设计", "skill": "dct-design", "artifacts": ["design-analysis.md", "design.md", "api.json", "test-case.md"], "effort": "max", "aiReview": true, "parallel": false }
-  ]
-}
-```
-
-不创建则使用内置默认的 6 阶段配置。
-
 ## 工作流程
 
 ```
 用户输入需求
-  → captain（主编排器）
-    → Stage 1: 需求澄清（dct-normalization + sailor）
-    → Stage 2: 方案设计（dct-design + sailor + inspector）
-    → Stage 3: 原子拆分（dct-planning + sailor + inspector）
-    → Stage 4: TDD 执行（dct-execution + sailor → 波次派 stevedore）
-    → Stage 5: 代码审查（dct-review + sailor + inspector）
-    → Stage 6: 集成测试+E2E（dct-testing + sailor）
-  → 完成
+  → captain（决策者+编排者）
+    → M1: 需求分析与设计
+      → Captain 追问 → 生成 checkpoint.md、user-store.md
+      → sailor(explore_code): 探索代码、查数据库 → 返回汇总
+      → Captain 基于汇总生成 design.md、api.json、test-case.md
+      → Captain 判断涉及前端 UI → 询问用户
+      → 用户同意 → sailor(generate_preview): 生成 preview.html → 用户确认
+    → M2: 任务拆分
+      → sailor(split_tasks): 每个API端点一个Task → 生成 plan.md
+    → 完成
+```
+
+## 设计原则
+
+1. **弱化阶段，任务驱动**：Captain 根据状态决定下一步
+2. **Captain 做设计决策**：代码探索交给 sailor 汇总，Captain 基于汇总生成设计
+3. **每个产物独立卡片**：完成一个更新一个
+4. **可选产物**：preview.html 由 Captain 判断是否需要，用户确认后生成
+
+## 里程碑
+
+| 里程碑 | 名称 | 产物 |
+|--------|------|------|
+| M1 | 需求分析与设计 | checkpoint.md, user-store.md, design.md, api.json, test-case.md, preview.html(可选) |
+| M2 | 任务拆分 | plan.md |
+
+## 产物生成规则
+
+| 产物 | 生成者 | 方式 |
+|------|--------|------|
+| checkpoint.md | Captain | 追问用户后直接生成 |
+| user-store.md | Captain | 追问用户后直接生成 |
+| design.md | Captain | sailor 探索汇总后，Captain 生成 |
+| api.json | Captain | 与 design.md 同时生成 |
+| test-case.md | Captain | 与 design.md 同时生成 |
+| preview.html | sailor | Captain 询问用户同意后，sailor 生成 |
+| plan.md | sailor | 直接生成 |
+
+## Kanban 展示
+
+kanban.md 使用 Obsidian Kanban 插件格式，每个产物独立卡片：
+
+```markdown
+---
+kanban-plugin: basic
+---
+
+## 待办
+- [ ] M1: checkpoint.md
+- [ ] M1: user-store.md
+- [ ] M1: design.md
+- [ ] M1: api.json
+- [ ] M1: test-case.md
+- [ ] M1: preview.html
+- [ ] M2: plan.md
+
+## 进行中
+## 已完成
+## 已跳过
 ```
 
 ## 架构
 
 | component | type | 说明 |
 |-----------|------|------|
-| DreamComeTruePlugin | Plugin | JS 引擎，注册 5 个 custom tool |
-| captain | Primary agent | 编排者，调工具驱动循环 |
-| sailor | Subagent | 阶段执行（stages 1-6） |
-| stevedore | Subagent | TDD 代码生成（stage 4） |
-| inspector | Subagent | AI 审查（stages 2-5） |
-| dct-* | Skill | 各阶段的实现指令 |
+| DreamComeTruePlugin | Plugin | JS 引擎，注册 custom tool |
+| captain | Primary agent | 决策者+编排者，生成设计文档 |
+| sailor | Subagent | 探索代码、生成预览、拆分任务 |
+
+## 文件结构
+
+```
+prd/2026-06-02-v1.0.0_用户登录_fzp/
+  .dct-state.json     ← 状态数据（脚本读写）
+  kanban.md           ← 展示文件（hook 自动生成）
+  checkpoint.md
+  design.md
+  ...
+```
+
+## 工具
+
+| 工具 | 用途 |
+|------|------|
+| `dct_run` | 启动流水线 |
+| `dct_next` | 获取当前 action |
+| `dct_kanban_view` | 查看 kanban 状态 |
+| `dct_kanban_update` | 更新 kanban 卡片/产物状态 |
+| `dct_status` | 查看状态摘要 |
+| `dct_task` | 更新任务状态 |
+| `obsidian` | Obsidian 操作 |

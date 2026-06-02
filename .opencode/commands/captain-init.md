@@ -3,7 +3,7 @@ description: 初始化 dream-come-true 插件的测试认证环境
 agent: captain
 ---
 
-# captain_init：初始化插件环境
+# dct_init：初始化插件环境
 
 执行以下流程初始化测试认证环境。
 
@@ -44,4 +44,4 @@ agent: captain
 - 根据 JWT 密钥生成的 token
 
 ## 完成
-初始化完成后，提示用户可以调用 /captain_run 启动流水线。
+初始化完成后，提示用户可以调用 /dct_run 启动流水线。
