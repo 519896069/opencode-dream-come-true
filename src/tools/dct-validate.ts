@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin"
 import { existsSync, readFileSync } from "fs"
-import { join, dirname } from "path"
+import { join } from "path"
+import { execSync } from "child_process"
 import type { ToolContext } from "../core.ts"
 
 interface ValidationResult {
@@ -17,57 +18,90 @@ interface ValidateResponse {
   message: string
 }
 
+type ProjectType = "golang" | "frontend" | "unknown"
+
+function detectProjectType(projectRoot: string): ProjectType {
+  if (existsSync(join(projectRoot, "go.mod"))) {
+    return "golang"
+  }
+  if (existsSync(join(projectRoot, "package.json"))) {
+    return "frontend"
+  }
+  return "unknown"
+}
+
+function execCommand(command: string, cwd: string): { success: boolean; output: string } {
+  try {
+    const output = execSync(command, {
+      cwd,
+      encoding: "utf-8",
+      timeout: 120000,
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    return { success: true, output }
+  } catch (error: any) {
+    const stderr = error.stderr || ""
+    const stdout = error.stdout || ""
+    return { success: false, output: stderr || stdout || error.message }
+  }
+}
+
 export function createDctValidate(ctx: ToolContext) {
   return tool({
     description: "验证任务产物是否符合预期，防止模型幻觉。任务完成后自动调用。",
     args: {
       taskId: { type: "string", description: "任务 ID" },
       artifact: { type: "string", description: "产物文件路径" },
-      workDir: { type: "string", description: "工作目录" },
+      workDir: { type: "string", description: "工作目录（git 仓库根目录）" },
     },
     async execute(args) {
       const { taskId, artifact, workDir } = args
       const results: ValidationResult[] = []
-      const projectRoot = ctx.root()
+      const projectRoot = workDir || ctx.root()
+      const projectType = detectProjectType(projectRoot)
 
-      // 1. 函数存在性验证
-      const funcResult = await checkFunctionsExist(artifact, projectRoot, workDir)
-      results.push(funcResult)
+      // 1. 文件存在性验证
+      const fileResult = await checkFileExists(artifact, projectRoot)
+      results.push(fileResult)
 
-      // 2. API 接口验证
-      const apiResult = await checkApiExists(artifact, projectRoot, workDir)
-      results.push(apiResult)
+      // 如果文件不存在，直接返回失败
+      if (fileResult.status === "fail") {
+        const response: ValidateResponse = {
+          taskId,
+          artifact,
+          validation: results,
+          overall: "fail",
+          message: "验证失败：产物文件不存在",
+        }
+        return JSON.stringify(response, null, 2)
+      }
 
-      // 3. 依赖库验证
-      const depResult = await checkDependencies(artifact, projectRoot)
-      results.push(depResult)
-
-      // 4. 表/字段验证
-      const tableResult = await checkTables(artifact, projectRoot, workDir)
-      results.push(tableResult)
-
-      // 5. 编译检查
-      const compileResult = await checkCompile(projectRoot, workDir)
+      // 2. 编译检查
+      const compileResult = await checkCompile(projectType, projectRoot)
       results.push(compileResult)
 
-      // 6. 类型检查
-      const typeResult = await checkType(projectRoot, workDir)
+      // 3. 类型检查
+      const typeResult = await checkType(projectType, projectRoot)
       results.push(typeResult)
 
-      // 7. 单元测试
-      const testResult = await checkUnitTest(projectRoot, workDir)
+      // 4. Lint 检查
+      const lintResult = await checkLint(projectType, projectRoot)
+      results.push(lintResult)
+
+      // 5. 单元测试
+      const testResult = await checkUnitTest(projectType, projectRoot)
       results.push(testResult)
 
-      const overall = results.every(r => r.status === "pass") ? "pass" : "fail"
+      const overall = results.every(r => r.status === "pass" || r.status === "skip") ? "pass" : "fail"
 
       const response: ValidateResponse = {
         taskId,
         artifact,
         validation: results,
         overall,
-        message: overall === "pass" 
-          ? "所有验证通过" 
-          : "验证失败，请检查错误信息并修复"
+        message: overall === "pass"
+          ? "所有验证通过"
+          : "验证失败，请检查错误信息并修复",
       }
 
       return JSON.stringify(response, null, 2)
@@ -75,308 +109,193 @@ export function createDctValidate(ctx: ToolContext) {
   })
 }
 
-async function checkFunctionsExist(
-  artifact: string, 
-  projectRoot: string, 
-  workDir?: string
-): Promise<ValidationResult> {
-  const result: ValidationResult = {
-    check: "函数存在性",
-    status: "pass",
-    details: []
-  }
-
-  try {
-    // 读取产物文件，提取函数名
-    const filePath = join(projectRoot, artifact)
-    if (!existsSync(filePath)) {
-      result.status = "fail"
-      result.details.push(`产物文件不存在: ${artifact}`)
-      return result
-    }
-
-    const content = readFileSync(filePath, "utf-8")
-    
-    // 提取函数定义（Go 语法）
-    const goFuncRegex = /func\s+(\w+)\s*\(/g
-    const matches = content.matchAll(goFuncRegex)
-    
-    for (const match of matches) {
-      const funcName = match[1]
-      // 在项目中搜索函数定义
-      // 这里简化处理，实际应该使用 grep 或 LSP
-      result.details.push(`函数 ${funcName} 已定义`)
-    }
-
-    // 如果没有找到函数定义，标记为跳过
-    if (result.details.length === 0) {
-      result.status = "skip"
-      result.details.push("未找到函数定义")
-    }
-  } catch (error) {
-    result.status = "fail"
-    result.details.push(`验证失败: ${error}`)
-  }
-
-  return result
-}
-
-async function checkApiExists(
-  artifact: string, 
-  projectRoot: string, 
-  workDir?: string
-): Promise<ValidationResult> {
-  const result: ValidationResult = {
-    check: "API 接口",
-    status: "pass",
-    details: []
-  }
-
-  try {
-    // 读取产物文件，提取 API 路径
-    const filePath = join(projectRoot, artifact)
-    if (!existsSync(filePath)) {
-      result.status = "fail"
-      result.details.push(`产物文件不存在: ${artifact}`)
-      return result
-    }
-
-    const content = readFileSync(filePath, "utf-8")
-    
-    // 提取 API 路径（Go 语法）
-    const apiRegex = /["']\/api\/[^"']+["']/g
-    const matches = content.matchAll(apiRegex)
-    
-    for (const match of matches) {
-      const apiPath = match[0].replace(/["']/g, "")
-      result.details.push(`API 路径 ${apiPath} 已定义`)
-    }
-
-    // 如果没有找到 API 路径，标记为跳过
-    if (result.details.length === 0) {
-      result.status = "skip"
-      result.details.push("未找到 API 路径")
-    }
-  } catch (error) {
-    result.status = "fail"
-    result.details.push(`验证失败: ${error}`)
-  }
-
-  return result
-}
-
-async function checkDependencies(
-  artifact: string, 
+async function checkFileExists(
+  artifact: string,
   projectRoot: string
 ): Promise<ValidationResult> {
   const result: ValidationResult = {
-    check: "依赖库",
+    check: "文件存在性",
     status: "pass",
-    details: []
+    details: [],
   }
 
-  try {
-    // 检查 Go 依赖
-    const goModPath = join(projectRoot, "go.mod")
-    if (existsSync(goModPath)) {
-      const content = readFileSync(goModPath, "utf-8")
-      result.details.push("go.mod 存在")
-      
-      // 提取依赖
-      const depRegex = /require\s+\(([\s\S]*?)\)/g
-      const matches = content.matchAll(depRegex)
-      for (const match of matches) {
-        const deps = match[1].split("\n").filter(d => d.trim())
-        result.details.push(`找到 ${deps.length} 个依赖`)
-      }
-    }
-
-    // 检查 Node.js 依赖
-    const packageJsonPath = join(projectRoot, "package.json")
-    if (existsSync(packageJsonPath)) {
-      const content = readFileSync(packageJsonPath, "utf-8")
-      const packageJson = JSON.parse(content)
-      const depCount = Object.keys(packageJson.dependencies || {}).length
-      const devDepCount = Object.keys(packageJson.devDependencies || {}).length
-      result.details.push(`package.json 存在，${depCount} 个依赖，${devDepCount} 个开发依赖`)
-    }
-
-    // 如果没有找到依赖文件，标记为跳过
-    if (result.details.length === 0) {
-      result.status = "skip"
-      result.details.push("未找到依赖文件")
-    }
-  } catch (error) {
+  const filePath = join(projectRoot, artifact)
+  if (!existsSync(filePath)) {
     result.status = "fail"
-    result.details.push(`验证失败: ${error}`)
-  }
-
-  return result
-}
-
-async function checkTables(
-  artifact: string, 
-  projectRoot: string, 
-  workDir?: string
-): Promise<ValidationResult> {
-  const result: ValidationResult = {
-    check: "表/字段",
-    status: "pass",
-    details: []
-  }
-
-  try {
-    // 读取产物文件，提取表名
-    const filePath = join(projectRoot, artifact)
-    if (!existsSync(filePath)) {
-      result.status = "fail"
-      result.details.push(`产物文件不存在: ${artifact}`)
-      return result
-    }
-
-    const content = readFileSync(filePath, "utf-8")
-    
-    // 提取表名（Go 语法，gorm tag）
-    const tableRegex = /TableName\(\)\s*string\s*{\s*return\s*["'](\w+)["']/g
-    const matches = content.matchAll(tableRegex)
-    
-    for (const match of matches) {
-      const tableName = match[1]
-      result.details.push(`表 ${tableName} 已定义`)
-    }
-
-    // 如果没有找到表定义，标记为跳过
-    if (result.details.length === 0) {
-      result.status = "skip"
-      result.details.push("未找到表定义")
-    }
-  } catch (error) {
-    result.status = "fail"
-    result.details.push(`验证失败: ${error}`)
+    result.details.push(`产物文件不存在: ${artifact}`)
+  } else {
+    result.details.push(`产物文件存在: ${artifact}`)
   }
 
   return result
 }
 
 async function checkCompile(
-  projectRoot: string, 
-  workDir?: string
+  projectType: ProjectType,
+  projectRoot: string
 ): Promise<ValidationResult> {
   const result: ValidationResult = {
     check: "编译检查",
-    status: "pass",
-    details: []
+    status: "skip",
+    details: [],
   }
 
-  try {
-    // 检查是否是 Go 项目
-    const goModPath = join(projectRoot, "go.mod")
-    if (existsSync(goModPath)) {
-      // 运行 go build
-      // 注意：这里只是示例，实际需要使用 bash 工具执行
-      result.details.push("Go 项目，需要运行 go build")
-      result.status = "skip"
+  if (projectType === "golang") {
+    const { success, output } = execCommand("go build ./...", projectRoot)
+    result.status = success ? "pass" : "fail"
+    if (success) {
+      result.details.push("Go 编译通过")
+    } else {
+      result.details.push(`Go 编译失败:\n${output}`)
     }
-
-    // 检查是否是 Node.js 项目
+  } else if (projectType === "frontend") {
+    // 检查 package.json 中是否有 build 脚本
     const packageJsonPath = join(projectRoot, "package.json")
     if (existsSync(packageJsonPath)) {
-      const content = readFileSync(packageJsonPath, "utf-8")
-      const packageJson = JSON.parse(content)
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"))
       if (packageJson.scripts?.build) {
-        result.details.push("Node.js 项目，需要运行 npm run build")
-        result.status = "skip"
+        const { success, output } = execCommand("npm run build", projectRoot)
+        result.status = success ? "pass" : "fail"
+        if (success) {
+          result.details.push("前端构建通过")
+        } else {
+          result.details.push(`前端构建失败:\n${output}`)
+        }
+      } else {
+        result.details.push("未找到 build 脚本，跳过编译检查")
       }
     }
-
-    // 如果没有找到构建配置，标记为跳过
-    if (result.details.length === 0) {
-      result.status = "skip"
-      result.details.push("未找到构建配置")
-    }
-  } catch (error) {
-    result.status = "fail"
-    result.details.push(`验证失败: ${error}`)
+  } else {
+    result.details.push("未知项目类型，跳过编译检查")
   }
 
   return result
 }
 
 async function checkType(
-  projectRoot: string, 
-  workDir?: string
+  projectType: ProjectType,
+  projectRoot: string
 ): Promise<ValidationResult> {
   const result: ValidationResult = {
     check: "类型检查",
-    status: "pass",
-    details: []
+    status: "skip",
+    details: [],
   }
 
-  try {
-    // 检查是否是 TypeScript 项目
+  if (projectType === "golang") {
+    const { success, output } = execCommand("go vet ./...", projectRoot)
+    result.status = success ? "pass" : "fail"
+    if (success) {
+      result.details.push("Go 类型检查通过")
+    } else {
+      result.details.push(`Go 类型检查失败:\n${output}`)
+    }
+  } else if (projectType === "frontend") {
+    // 检查是否有 tsconfig.json
     const tsConfigPath = join(projectRoot, "tsconfig.json")
     if (existsSync(tsConfigPath)) {
-      result.details.push("TypeScript 项目，需要运行 tsc --noEmit")
-      result.status = "skip"
+      const { success, output } = execCommand("npx tsc --noEmit", projectRoot)
+      result.status = success ? "pass" : "fail"
+      if (success) {
+        result.details.push("TypeScript 类型检查通过")
+      } else {
+        result.details.push(`TypeScript 类型检查失败:\n${output}`)
+      }
+    } else {
+      result.details.push("未找到 tsconfig.json，跳过类型检查")
     }
+  } else {
+    result.details.push("未知项目类型，跳过类型检查")
+  }
 
-    // 检查是否是 Go 项目
-    const goModPath = join(projectRoot, "go.mod")
-    if (existsSync(goModPath)) {
-      result.details.push("Go 项目，需要运行 go vet")
-      result.status = "skip"
-    }
+  return result
+}
 
-    // 如果没有找到类型检查配置，标记为跳过
-    if (result.details.length === 0) {
-      result.status = "skip"
-      result.details.push("未找到类型检查配置")
+async function checkLint(
+  projectType: ProjectType,
+  projectRoot: string
+): Promise<ValidationResult> {
+  const result: ValidationResult = {
+    check: "Lint 检查",
+    status: "skip",
+    details: [],
+  }
+
+  if (projectType === "golang") {
+    // 检查是否有 golangci-lint 配置
+    const golangciLintPath = join(projectRoot, ".golangci.yml")
+    const golangciLintPath2 = join(projectRoot, ".golangci.yaml")
+    if (existsSync(golangciLintPath) || existsSync(golangciLintPath2)) {
+      const { success, output } = execCommand("golangci-lint run", projectRoot)
+      result.status = success ? "pass" : "fail"
+      if (success) {
+        result.details.push("Go Lint 检查通过")
+      } else {
+        result.details.push(`Go Lint 检查失败:\n${output}`)
+      }
+    } else {
+      result.details.push("未找到 golangci-lint 配置，跳过 Lint 检查")
     }
-  } catch (error) {
-    result.status = "fail"
-    result.details.push(`验证失败: ${error}`)
+  } else if (projectType === "frontend") {
+    // 检查是否有 eslint 配置
+    const eslintConfigPath = join(projectRoot, ".eslintrc.js")
+    const eslintConfigPath2 = join(projectRoot, ".eslintrc.json")
+    const eslintConfigPath3 = join(projectRoot, "eslint.config.js")
+    if (existsSync(eslintConfigPath) || existsSync(eslintConfigPath2) || existsSync(eslintConfigPath3)) {
+      const { success, output } = execCommand("npx eslint .", projectRoot)
+      result.status = success ? "pass" : "fail"
+      if (success) {
+        result.details.push("ESLint 检查通过")
+      } else {
+        result.details.push(`ESLint 检查失败:\n${output}`)
+      }
+    } else {
+      result.details.push("未找到 ESLint 配置，跳过 Lint 检查")
+    }
+  } else {
+    result.details.push("未知项目类型，跳过 Lint 检查")
   }
 
   return result
 }
 
 async function checkUnitTest(
-  projectRoot: string, 
-  workDir?: string
+  projectType: ProjectType,
+  projectRoot: string
 ): Promise<ValidationResult> {
   const result: ValidationResult = {
     check: "单元测试",
-    status: "pass",
-    details: []
+    status: "skip",
+    details: [],
   }
 
-  try {
-    // 检查是否是 Go 项目
-    const goModPath = join(projectRoot, "go.mod")
-    if (existsSync(goModPath)) {
-      result.details.push("Go 项目，需要运行 go test")
-      result.status = "skip"
+  if (projectType === "golang") {
+    const { success, output } = execCommand("go test ./...", projectRoot)
+    result.status = success ? "pass" : "fail"
+    if (success) {
+      result.details.push("Go 单元测试通过")
+    } else {
+      result.details.push(`Go 单元测试失败:\n${output}`)
     }
-
-    // 检查是否是 Node.js 项目
+  } else if (projectType === "frontend") {
+    // 检查 package.json 中是否有 test 脚本
     const packageJsonPath = join(projectRoot, "package.json")
     if (existsSync(packageJsonPath)) {
-      const content = readFileSync(packageJsonPath, "utf-8")
-      const packageJson = JSON.parse(content)
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"))
       if (packageJson.scripts?.test) {
-        result.details.push("Node.js 项目，需要运行 npm test")
-        result.status = "skip"
+        const { success, output } = execCommand("npm test", projectRoot)
+        result.status = success ? "pass" : "fail"
+        if (success) {
+          result.details.push("前端单元测试通过")
+        } else {
+          result.details.push(`前端单元测试失败:\n${output}`)
+        }
+      } else {
+        result.details.push("未找到 test 脚本，跳过单元测试")
       }
     }
-
-    // 如果没有找到测试配置，标记为跳过
-    if (result.details.length === 0) {
-      result.status = "skip"
-      result.details.push("未找到测试配置")
-    }
-  } catch (error) {
-    result.status = "fail"
-    result.details.push(`验证失败: ${error}`)
+  } else {
+    result.details.push("未知项目类型，跳过单元测试")
   }
 
   return result
