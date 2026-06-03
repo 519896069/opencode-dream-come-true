@@ -1,6 +1,6 @@
 ---
 description: 初始化 dream-come-true 插件的测试认证环境
-agent: captain
+agent: planner
 ---
 
 # dct_init：初始化插件环境

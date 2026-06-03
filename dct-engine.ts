@@ -1,18 +1,14 @@
-import { type Plugin } from "@opencode-ai/plugin"
+﻿import { type Plugin } from "@opencode-ai/plugin"
 import { existsSync, readFileSync } from "fs"
 import { join, dirname } from "path"
 import { execSync } from "child_process"
 import { fileURLToPath } from "url"
 
-import { onStateChange, writeDisplay } from "./src/kanban-manager.ts"
+import { createKanban } from "./src/kanban-manager.ts"
 import { loadCommandsFromDir, loadAgentsFromDir } from "./src/shared/utils.ts"
-import { createDctCheck } from "./src/tools/dct-check.ts"
 import { createDctRun } from "./src/tools/dct-run.ts"
-import { createDctNext } from "./src/tools/dct-next.ts"
-import { createDctKanbanView } from "./src/tools/dct-kanban-view.ts"
-import { createDctKanbanUpdate } from "./src/tools/dct-kanban-update.ts"
-import { createDctStatus } from "./src/tools/dct-status.ts"
-import { createDctTask } from "./src/tools/dct-task.ts"
+import { createDctValidate } from "./src/tools/dct-validate.ts"
+import { createDctTaskContext } from "./src/tools/dct-task-context.ts"
 import { createObsidianTool } from "./src/tools/obsidian.ts"
 import type { ToolContext } from "./src/core.ts"
 
@@ -45,11 +41,6 @@ export const DreamComeTruePlugin: Plugin = async (ctx: any) => {
   }
 
   const logger = (msg: any) => ctx.client.app.log(msg)
-
-  onStateChange((statePath, data) => {
-    const kanbanPath = join(dirname(statePath), "kanban.md")
-    writeDisplay(kanbanPath, data)
-  })
 
   return {
     config: async (config) => {
@@ -87,13 +78,9 @@ export const DreamComeTruePlugin: Plugin = async (ctx: any) => {
     },
 
     tool: {
-      dct_check: createDctCheck(toolCtx),
       dct_run: createDctRun(toolCtx),
-      dct_next: createDctNext(toolCtx),
-      dct_kanban_view: createDctKanbanView(toolCtx),
-      dct_kanban_update: createDctKanbanUpdate(toolCtx),
-      dct_status: createDctStatus(toolCtx),
-      dct_task: createDctTask(),
+      dct_validate: createDctValidate(toolCtx),
+      dct_task_context: createDctTaskContext(toolCtx),
       obsidian: createObsidianTool(),
     },
   }

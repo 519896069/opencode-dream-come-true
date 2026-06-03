@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs"
+﻿import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs"
 import { join } from "path"
 
 export function readFile(path: string): string {
@@ -9,24 +9,8 @@ export function writeFile(path: string, content: string): void {
   writeFileSync(path, content, "utf-8")
 }
 
-export function readJson<T>(path: string): T {
-  return JSON.parse(readFileSync(path, "utf-8")) as T
-}
-
-export function writeJson(path: string, data: unknown): void {
-  writeFileSync(path, JSON.stringify(data, null, 2) + "\n", "utf-8")
-}
-
 export function ensureDir(path: string): void {
   mkdirSync(path, { recursive: true })
-}
-
-export function fileExists(path: string): boolean {
-  return existsSync(path)
-}
-
-export function extractTheme(content: string): string {
-  return content.match(/# (.+?) - 状态追踪/)?.[1] || ""
 }
 
 export function slugify(text: string): string {

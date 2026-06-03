@@ -50,9 +50,9 @@ obsidian 工具用于在 Obsidian 桌面应用中执行常用操作：打开笔�
 
 调用 obsidian(action="advanced", vault="库名", commandid="daily-notes")
 
-## 与 Captain 流水线集成
+## 与 Planner 流水线集成
 
-captain 在以下环节自动调用 obsidian 工具：
+Planner 在以下环节自动调用 obsidian 工具：
 
 | 时机 | 操作 |
 |------|------|
