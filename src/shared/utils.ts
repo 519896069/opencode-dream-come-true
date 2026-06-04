@@ -87,39 +87,27 @@ export async function loadAgentsFromDir(pluginRoot: string, logger?: any): Promi
     })
 
     for (const subdir of subdirs) {
-      const agentFile = join(agentsDir, subdir, "AGENTS.md")
-      if (!existsSync(agentFile)) continue
-
-      const content = readFileSync(agentFile, "utf-8")
-      const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
-      if (!match) continue
-
-      const frontmatter = match[1]
-      const meta: Record<string, any> = {}
-      for (const line of frontmatter.split("\n")) {
-        const kv = line.match(/^(\w+)\s*:\s*(.+)$/)
-        if (kv) {
-          let value = kv[2].trim()
-          if ((value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1)
+      const agentDir = join(agentsDir, subdir)
+      const configFile = join(agentDir, "config.json")
+      
+      if (!existsSync(configFile)) continue
+      
+      try {
+        const config = JSON.parse(readFileSync(configFile, "utf-8"))
+        
+        // 如果 prompt 指向 AGENTS.md，读取文件内容
+        if (config.prompt === "AGENTS.md") {
+          const agentFile = join(agentDir, "AGENTS.md")
+          if (existsSync(agentFile)) {
+            config.prompt = readFileSync(agentFile, "utf-8")
           }
-          meta[kv[1].trim()] = value
         }
+        
+        agents[subdir] = config
+        if (logger) await logger({ body: { service: "dream-come-true", level: "info", message: "agent loaded", extra: { agent: subdir } } })
+      } catch (e) {
+        if (logger) await logger({ body: { service: "dream-come-true", level: "error", message: "config.json parse error", extra: { agent: subdir, error: String(e) } } })
       }
-
-      const agentConfig: Record<string, any> = {
-        description: meta.description || "",
-        mode: meta.mode || "subagent",
-        prompt: content,
-      }
-      if (meta.model) agentConfig.model = meta.model
-      if (meta.temperature) agentConfig.temperature = parseFloat(meta.temperature)
-      if (meta.color) agentConfig.color = meta.color
-      if (meta.permission) agentConfig.permission = parsePermission(meta.permission)
-
-      agents[subdir] = agentConfig
-      if (logger) await logger({ body: { service: "dream-come-true", level: "info", message: "agent loaded", extra: { agent: subdir } } })
     }
   } catch (e) {
     if (logger) await logger({ body: { service: "dream-come-true", level: "error", message: "loadAgentsFromDir error", extra: { error: String(e) } } })

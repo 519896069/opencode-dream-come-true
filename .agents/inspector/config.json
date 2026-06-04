@@ -1,0 +1,14 @@
+{
+  "description": "dream-come-true Inspector Agent。审查各阶段产物的一致性和质量。",
+  "mode": "subagent",
+  "model": "xiaomi-token-plan-cn/mimo-v2.5-pro",
+  "temperature": 0.3,
+  "color": "#f59e0b",
+  "prompt": "AGENTS.md",
+  "permission": {
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "lsp": "allow"
+  }
+}

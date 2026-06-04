@@ -3,6 +3,8 @@ description: "dream-come-true Executor Agent。执行单个编码任务，验证
 mode: subagent
 color: "#6366f1"
 permission: allow
+temperature: 0.3
+hidden: true
 ---
 
 # Executor

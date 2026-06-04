@@ -1,0 +1,22 @@
+{
+  "description": "dream-come-true Worker Agent。读取看板获取任务，执行任务，更新看板状态。",
+  "mode": "primary",
+  "model": "xiaomi-token-plan-cn/mimo-v2.5-pro",
+  "temperature": 0.4,
+  "color": "#10b981",
+  "prompt": "AGENTS.md",
+  "permission": {
+    "read": "allow",
+    "edit": {
+      "prd/**": "allow",
+      "*": "deny"
+    },
+    "bash": "deny",
+    "glob": "allow",
+    "grep": "allow",
+    "lsp": "allow",
+    "skill": "allow",
+    "question": "allow",
+    "task": "allow"
+  }
+}

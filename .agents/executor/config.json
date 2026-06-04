@@ -1,0 +1,18 @@
+{
+  "description": "dream-come-true Executor Agent。执行单个编码任务，验证产物，失败时自动重试。",
+  "mode": "subagent",
+  "model": "xiaomi-token-plan-cn/mimo-v2.5",
+  "temperature": 0.3,
+  "color": "#6366f1",
+  "prompt": "AGENTS.md",
+  "permission": {
+    "read": "allow",
+    "write": "allow",
+    "edit": "allow",
+    "bash": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "lsp": "allow",
+    "skill": "allow"
+  }
+}

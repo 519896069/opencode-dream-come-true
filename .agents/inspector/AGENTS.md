@@ -7,6 +7,8 @@ permission:
   glob: allow
   grep: allow
   lsp: allow
+temperature: 0.3
+hidden: true
 ---
 
 # Inspector

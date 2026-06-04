@@ -14,6 +14,7 @@ permission:
   skill: allow
   question: allow
   task: allow
+temperature: 0.4
 ---
 
 # Worker
