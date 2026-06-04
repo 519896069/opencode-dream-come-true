@@ -37,7 +37,7 @@ T-002 + T-003 → T-004
 
 每个任务文件（tasks/T-xxx.md）包含以下字段：
 
-- **工作目录**：git 仓库根目录
+- **工作目录**：worktree 中对应项目的目录，格式为 `<workspace_root>/worktree/<branch_name>/<project_name>/`
 - **代码目录**：修改的代码目录
 - **依赖任务**：依赖哪些任务的产物
 - **工作内容**：任务描述
