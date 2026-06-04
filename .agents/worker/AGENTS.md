@@ -74,6 +74,14 @@ Worker 只能修改 prd/ 目录下的文件，其他文件由 Executor 修改。
 6. 检查任务依赖是否完成
 7. 如果任务需要用户确认，询问用户
 8. 按照任务上下文的指示执行任务
+   - 如果是 M3 任务，执行 M3 特殊流程：
+     a. 读取 tasks.md，获取执行顺序
+     b. 按轮次派发编码任务：
+        - 调用 dct_task_context({ taskFile: "tasks/T-xxx.md" }) 获取任务内容
+        - 启动 Executor 子代理：task(subagent: "executor", prompt: "执行以下任务：<任务内容>")
+        - 同一轮次的任务可并发执行
+        - 等待当前轮次所有任务完成，再执行下一轮次
+     c. 根据 Executor 返回结果更新 kanban 中编码任务的状态
 9. 调用 dct_validate 验证产物（如果上下文中有指示，则由 Executor 完成）
 10. 调用 Inspector 进行一致性审查：
     task(subagent: "inspector", prompt: "审查 {任务类型} 产物的一致性。审查依据：checkpoint.md、user-store.md、api.json。审查对象：{当前阶段产物}。")
