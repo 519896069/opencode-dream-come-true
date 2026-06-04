@@ -26,5 +26,4 @@ export const CONTEXT_NAMES = [
   "m1",
   "m2",
   "m3",
-  "code-task",
 ]

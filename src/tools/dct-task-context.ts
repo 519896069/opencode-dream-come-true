@@ -9,7 +9,7 @@ export function createDctTaskContext(ctx: ToolContext) {
     description: "获取任务上下文。支持两种调用方式：1) 获取上下文模板：dct_task_context(taskType: \"m1\") 2) 获取真实任务文件：dct_task_context(taskFile: \"tasks/T-001.md\")",
     args: {
       taskType: tool.schema.string({ 
-        description: "任务类型，可选值：m1, m2, m3, code-task（获取模板时使用）" 
+        description: "任务类型，可选值：m1, m2, m3（获取模板时使用）" 
       }),
       taskFile: tool.schema.string({ 
         description: "任务文件位置，如 tasks/T-001.md（获取真实任务文件时使用）" 
