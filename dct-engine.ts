@@ -62,6 +62,16 @@ export const DreamComeTruePlugin: Plugin = async (ctx: any) => {
         if (!config.command) config.command = {}
         Object.assign(config.command, commands)
       }
+
+      const skillsDir = join(pluginRoot, ".opencode", "skills")
+      if (existsSync(skillsDir)) {
+        if (!config.skills) config.skills = {}
+        if (!config.skills.paths) config.skills.paths = []
+        if (!config.skills.paths.includes(skillsDir)) {
+          config.skills.paths.push(skillsDir)
+          await logger({ body: { service: "dream-come-true", level: "info", message: "skills registered", extra: { skillsDir } } })
+        }
+      }
     },
 
     "tool.execute.after": async (input, output) => {
